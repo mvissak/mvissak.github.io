@@ -39,7 +39,7 @@ describe("TrainerApp", () => {
     expect(screen.queryByText("Bet $25.00")).not.toBeInTheDocument();
   });
 
-  test("explains that the action buttons are legal options, not chart recommendations", async () => {
+  test("shows the action area title during player decisions", async () => {
     const trainer = createTrainerWithCards([
       createCard("5"),
       createCard("2", "clubs"),
@@ -51,10 +51,8 @@ describe("TrainerApp", () => {
 
     expect(await screen.findByText("Choose an action")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "These buttons show every legal action, not the recommended chart play. The hand will not advance until you choose the correct basic-strategy move.",
-      ),
-    ).toBeInTheDocument();
+      screen.queryByText(/These buttons show every legal action/i),
+    ).not.toBeInTheDocument();
   });
 
   test("shows the next-hand countdown in the action area only after the round resolves", async () => {

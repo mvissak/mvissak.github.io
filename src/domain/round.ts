@@ -78,6 +78,10 @@ export const playDealerHand = (cards: Card[], shoe: Shoe): Card[] => {
   }
 };
 
+export const shouldDealerPlay = (
+  playerHands: ReadonlyArray<Pick<PlayerRoundHand, "cards">>,
+): boolean => playerHands.some((hand) => !getHandValue(hand.cards).isBust);
+
 export const settleHand = (hand: PlayerRoundHand, dealerCards: Card[]): SettledHand => {
   const playerValue = getHandValue(hand.cards);
   const dealerValue = getHandValue(dealerCards);

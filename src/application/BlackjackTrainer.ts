@@ -1,7 +1,13 @@
 import { blackjackRules } from "@/domain/blackjackRules";
 import { Shoe } from "@/domain/Shoe";
 import { getHandValue } from "@/domain/hand";
-import { settleHand, deriveHandStatus, getAllowedActions, playDealerHand } from "@/domain/round";
+import {
+  settleHand,
+  deriveHandStatus,
+  getAllowedActions,
+  playDealerHand,
+  shouldDealerPlay,
+} from "@/domain/round";
 import { getBasicStrategyDecision } from "@/domain/strategy";
 import type { ShoeFactory } from "@/application/ports";
 import type {
@@ -162,7 +168,9 @@ export class BlackjackTrainer {
       };
     }
 
-    const dealerCards = playDealerHand(nextRound.dealerCards, this.shoe);
+    const dealerCards = shouldDealerPlay(nextRound.playerHands)
+      ? playDealerHand(nextRound.dealerCards, this.shoe)
+      : nextRound.dealerCards;
     const resolvedRound = this.resolveRound({
       ...nextRound,
       dealerCards,

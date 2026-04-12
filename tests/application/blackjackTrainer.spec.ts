@@ -95,6 +95,24 @@ describe("blackjack trainer flow", () => {
     expect(secondResult.stats.totalHandsPlayed).toBe(2);
   });
 
+  test("reveals the dealer hole card but does not draw after the player busts", () => {
+    const trainer = createTrainerWithCards([
+      createCard("10"),
+      createCard("7", "clubs"),
+      createCard("2", "hearts"),
+      createCard("6", "diamonds"),
+      createCard("K", "spades"),
+    ]);
+
+    const initialState = trainer.startNewSession();
+    const resolvedState = trainer.submitAction(initialState, "hit");
+
+    expect(resolvedState.phase).toBe("roundResolved");
+    expect(resolvedState.round?.dealerHoleHidden).toBe(false);
+    expect(resolvedState.round?.dealerCards.map((card) => card.rank)).toEqual(["7", "6"]);
+    expect(resolvedState.round?.playerHands[0].summary).toBe("Bust for 22.");
+  });
+
   test("reshuffles only after the cut card is reached and the hand ends", () => {
     const trainer = createTrainerWithCards(
       [

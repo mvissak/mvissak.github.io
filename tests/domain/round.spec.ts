@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { deriveHandStatus, getAllowedActions } from "@/domain/round";
+import { deriveHandStatus, getAllowedActions, shouldDealerPlay } from "@/domain/round";
 import { createCard } from "@tests/helpers";
 
 describe("allowed actions", () => {
@@ -54,5 +54,23 @@ describe("allowed actions", () => {
       double: false,
       split: false,
     });
+  });
+
+  test("skips dealer play when every player hand is busted", () => {
+    expect(
+      shouldDealerPlay([
+        { cards: [createCard("10"), createCard("9", "hearts"), createCard("5", "clubs")] },
+        { cards: [createCard("8"), createCard("9", "diamonds"), createCard("6", "spades")] },
+      ]),
+    ).toBe(false);
+  });
+
+  test("requires dealer play when at least one player hand survives", () => {
+    expect(
+      shouldDealerPlay([
+        { cards: [createCard("10"), createCard("9", "hearts"), createCard("5", "clubs")] },
+        { cards: [createCard("10"), createCard("7", "diamonds")] },
+      ]),
+    ).toBe(true);
   });
 });
