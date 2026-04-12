@@ -7,6 +7,7 @@ import {
   restoreSession,
   startNewSession,
   startNextHand,
+  submitInsuranceChoice,
   submitPlayerAction,
   updateWagerAmount,
 } from "@/application/useCases";
@@ -14,7 +15,7 @@ import type { TrainerState } from "@/application/trainerState";
 import { SessionStorageTrainerStore } from "@/infrastructure/SessionStorageTrainerStore";
 import { MathRandomSource } from "@/infrastructure/random";
 import type { TrainerStateStore } from "@/application/ports";
-import type { PlayerAction, RandomSource } from "@/domain/types";
+import type { InsuranceDecision, PlayerAction, RandomSource } from "@/domain/types";
 import { themeTokens } from "@/presentation/theme/tokens";
 import {
   buildCashOutMessage,
@@ -86,6 +87,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     initialDelayMs: options.drinkOfferInitialDelayMs,
     isBlocked:
       !state ||
+      state.phase === "insuranceDecision" ||
       state.correction !== null ||
       isCashOutOpen ||
       isResetSessionConfirmationOpen ||
@@ -351,6 +353,12 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     );
   };
 
+  const chooseInsurance = (decision: InsuranceDecision) => {
+    setState((currentState) =>
+      currentState ? submitInsuranceChoice(trainerRef.current, currentState, decision) : currentState,
+    );
+  };
+
   const closeCorrection = () => {
     setState((currentState) =>
       currentState ? dismissCorrection(trainerRef.current, currentState) : currentState,
@@ -390,10 +398,12 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     suppressResolvedOutcome: state?.phase === "roundResolved" && !dealerRevealComplete,
     waitressReaction: drinkInterruptions.reaction,
     winCelebrationActive: roundReaction === "win",
+    insuranceDecisionActive: state?.phase === "insuranceDecision",
     nextHand,
     state,
     updateWagerAmount: changeWagerAmount,
     takeAction,
+    chooseInsurance,
     closeCorrection,
     wagerAmount: state?.wagerAmount ?? 25,
   };

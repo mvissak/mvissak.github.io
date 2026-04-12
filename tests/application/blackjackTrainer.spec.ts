@@ -38,7 +38,7 @@ describe("blackjack trainer flow", () => {
     expect(state.stats.winnings).toBe(60);
   });
 
-  test("auto-resolves a dealer blackjack with an ace upcard before any player action", () => {
+  test("prompts for insurance before resolving an ace-upcard dealer blackjack", () => {
     const trainer = createTrainerWithCards([
       createCard("10"),
       createCard("A", "clubs"),
@@ -48,12 +48,91 @@ describe("blackjack trainer flow", () => {
 
     const state = trainer.startNewSession();
 
+    expect(state.phase).toBe("insuranceDecision");
+    expect(state.round?.dealerHoleHidden).toBe(true);
+    expect(state.round?.dealerCards.map((card) => card.rank)).toEqual(["A", "K"]);
+  });
+
+  test("explains that buying insurance is the wrong training choice", () => {
+    const trainer = createTrainerWithCards([
+      createCard("10"),
+      createCard("A", "clubs"),
+      createCard("7", "hearts"),
+      createCard("9", "diamonds"),
+    ]);
+
+    const initialState = trainer.startNewSession();
+    const correctedState = trainer.submitInsuranceDecision(initialState, "yes");
+
+    expect(correctedState.phase).toBe("insuranceDecision");
+    expect(correctedState.correction?.recommendedLabel).toBe("No Insurance");
+    expect(correctedState.stats.mistakesMade).toBe(1);
+  });
+
+  test("declining insurance resolves dealer blackjack when the hole card is ten-valued", () => {
+    const trainer = createTrainerWithCards([
+      createCard("10"),
+      createCard("A", "clubs"),
+      createCard("7", "hearts"),
+      createCard("K", "diamonds"),
+    ]);
+
+    const initialState = trainer.startNewSession();
+    const state = trainer.submitInsuranceDecision(initialState, "no");
+
     expect(state.phase).toBe("roundResolved");
     expect(state.round?.dealerHoleHidden).toBe(false);
     expect(state.round?.dealerCards.map((card) => card.rank)).toEqual(["A", "K"]);
     expect(state.round?.playerHands[0].outcome).toBe("loss");
     expect(state.round?.playerHands[0].netResult).toBe(-25);
     expect(state.stats.winnings).toBe(-25);
+  });
+
+  test("declining insurance returns to normal play when the dealer does not have blackjack", () => {
+    const trainer = createTrainerWithCards([
+      createCard("10"),
+      createCard("A", "clubs"),
+      createCard("7", "hearts"),
+      createCard("9", "diamonds"),
+    ]);
+
+    const initialState = trainer.startNewSession();
+    const state = trainer.submitInsuranceDecision(initialState, "no");
+
+    expect(state.phase).toBe("playerTurn");
+    expect(state.round?.dealerHoleHidden).toBe(true);
+    expect(state.round?.dealerCards.map((card) => card.rank)).toEqual(["A", "9"]);
+  });
+
+  test("does not reveal a ten-upcard dealer blackjack before player actions begin", () => {
+    const trainer = createTrainerWithCards([
+      createCard("10"),
+      createCard("10", "clubs"),
+      createCard("7", "hearts"),
+      createCard("A", "diamonds"),
+    ]);
+
+    const state = trainer.startNewSession();
+
+    expect(state.phase).toBe("playerTurn");
+    expect(state.round?.dealerHoleHidden).toBe(true);
+    expect(state.round?.dealerCards.map((card) => card.rank)).toEqual(["10", "A"]);
+  });
+
+  test("reveals ten-upcard dealer blackjack only after the hand resolves", () => {
+    const trainer = createTrainerWithCards([
+      createCard("10"),
+      createCard("10", "clubs"),
+      createCard("7", "hearts"),
+      createCard("A", "diamonds"),
+    ]);
+
+    const initialState = trainer.startNewSession();
+    const resolvedState = trainer.submitAction(initialState, "stand");
+
+    expect(resolvedState.phase).toBe("roundResolved");
+    expect(resolvedState.round?.dealerHoleHidden).toBe(false);
+    expect(resolvedState.round?.playerHands[0].summary).toBe("Dealer blackjack.");
   });
 
   test("blocks the hand and shows corrective feedback on a wrong action", () => {

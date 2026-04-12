@@ -1,6 +1,6 @@
 import { BlackjackTrainer } from "@/application/BlackjackTrainer";
 import type { PersistedTrainerState, TrainerState } from "@/application/trainerState";
-import type { PlayerAction } from "@/domain/types";
+import type { InsuranceDecision, PlayerAction } from "@/domain/types";
 
 export const startNewSession = (
   trainer: BlackjackTrainer,
@@ -29,3 +29,9 @@ export const updateWagerAmount = (
   state: TrainerState,
   wagerAmount: number,
 ): TrainerState => trainer.updateWagerAmount(state, wagerAmount);
+
+export const submitInsuranceChoice = (
+  trainer: BlackjackTrainer,
+  state: TrainerState,
+  decision: InsuranceDecision,
+): TrainerState => trainer.submitInsuranceDecision(state, decision);

@@ -39,6 +39,55 @@ describe("TrainerApp", () => {
     expect(screen.queryByText("Bet $25.00")).not.toBeInTheDocument();
   });
 
+  test("uses an insurance prompt for ace upcards and routes a wrong yes answer through correction", async () => {
+    const user = userEvent.setup();
+    const trainer = createTrainerWithCards([
+      createCard("10"),
+      createCard("A", "clubs"),
+      createCard("7", "hearts"),
+      createCard("9", "diamonds"),
+    ]);
+
+    render(React.createElement(TrainerApp, { trainer }));
+
+    expect(await screen.findByText("Dealer shows an ace.")).toBeInTheDocument();
+    expect(screen.getByText(/Insurance costs \$12\.50/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Yes, Buy Insurance" }));
+
+    expect(await screen.findByText("No Insurance is the chart play.")).toBeInTheDocument();
+    expect(screen.getByText(/Insurance is a negative-expectation side bet/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Choose Again" }));
+
+    expect(await screen.findByText("Dealer shows an ace.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "No Insurance" }));
+
+    expect(await screen.findByRole("button", { name: "Stand" })).toBeInTheDocument();
+    expect(screen.queryByText("Dealer shows an ace.")).not.toBeInTheDocument();
+  });
+
+  test("does not interrupt the opening deal when a ten upcard is hiding blackjack", async () => {
+    const user = userEvent.setup();
+    const trainer = createTrainerWithCards([
+      createCard("10"),
+      createCard("10", "clubs"),
+      createCard("7", "hearts"),
+      createCard("A", "diamonds"),
+    ]);
+
+    render(React.createElement(TrainerApp, { trainer }));
+
+    expect(await screen.findByRole("button", { name: "Stand" })).toBeInTheDocument();
+    expect(screen.queryByText("Dealer shows an ace.")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("dealer-blackjack-reaction")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Stand" }));
+
+    expect(await screen.findByText("Dealer Blackjack")).toBeInTheDocument();
+  });
+
   test("shows the action area title during player decisions", async () => {
     const trainer = createTrainerWithCards([
       createCard("5"),
@@ -249,8 +298,16 @@ describe("TrainerApp", () => {
 
   test("shows a follow-up confirmation for a valid drink order", async () => {
     vi.useFakeTimers();
+    const trainer = createTrainerWithCards([
+      createCard("10"),
+      createCard("7", "clubs"),
+      createCard("Q", "hearts"),
+      createCard("Q", "diamonds"),
+    ]);
+
     render(
       React.createElement(TrainerApp, {
+        trainer,
         drinkOfferInitialDelayMs: 10,
         drinkOfferMaximumIntervalMs: 100,
         drinkOfferMinimumIntervalMs: 100,
@@ -450,6 +507,8 @@ describe("TrainerApp", () => {
     await act(async () => {
       await Promise.resolve();
     });
+
+    fireEvent.click(screen.getByRole("button", { name: "No Insurance" }));
 
     expect(screen.getByTestId("dealer-blackjack-reaction")).toBeInTheDocument();
     expect(screen.getByText("Dealer Blackjack")).toBeInTheDocument();

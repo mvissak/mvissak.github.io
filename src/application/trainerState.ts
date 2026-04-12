@@ -8,8 +8,10 @@ import type {
 } from "@/domain/types";
 
 export interface TrainingCorrection {
-  incorrectAction: PlayerAction;
-  recommendedAction: PlayerAction;
+  incorrectAction?: PlayerAction;
+  recommendedAction?: PlayerAction;
+  incorrectLabel?: string;
+  recommendedLabel?: string;
   explanation: string;
 }
 

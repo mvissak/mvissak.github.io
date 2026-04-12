@@ -9,6 +9,7 @@ import { CorrectionModal } from "@/presentation/components/CorrectionModal";
 import { DealerBlackjackOverlay } from "@/presentation/components/DealerBlackjackOverlay";
 import { HandArea } from "@/presentation/components/HandArea";
 import { HeaderBar } from "@/presentation/components/HeaderBar";
+import { InsuranceOfferModal } from "@/presentation/components/InsuranceOfferModal";
 import { StatsPanel } from "@/presentation/components/StatsPanel";
 import { TableSurface } from "@/presentation/components/TableSurface";
 import { WaitressDrinkModal } from "@/presentation/components/WaitressDrinkModal";
@@ -96,6 +97,12 @@ export function TrainerApp({
         cashOut={controller.cashOutMessage}
         isOpen={controller.isCashOutOpen}
         onDismiss={controller.closeCashOut}
+      />
+      <InsuranceOfferModal
+        insuranceAmountLabel={viewModel.insuranceOffer?.amountLabel ?? "$0.00"}
+        isOpen={controller.insuranceDecisionActive === true}
+        onChooseNo={() => controller.chooseInsurance("no")}
+        onChooseYes={() => controller.chooseInsurance("yes")}
       />
       <WaitressDrinkModal
         countdownSecondsRemaining={controller.drinkOfferSecondsRemaining}

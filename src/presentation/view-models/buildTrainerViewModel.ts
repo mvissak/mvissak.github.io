@@ -39,6 +39,10 @@ export interface TrainerViewCorrection {
   explanation: string;
 }
 
+export interface TrainerViewInsuranceOffer {
+  amountLabel: string;
+}
+
 export type TrainerViewOutcomeTone = "default" | "success" | "danger" | "push" | "blackjack";
 
 export interface TrainerViewOutcomeCallout {
@@ -59,6 +63,7 @@ export interface TrainerViewModel {
   actions: TrainerViewAction[];
   metrics: TrainerViewMetric[];
   correction: TrainerViewCorrection | null;
+  insuranceOffer: TrainerViewInsuranceOffer | null;
 }
 
 export interface TrainerViewModelOptions {
@@ -201,6 +206,7 @@ export const buildTrainerViewModel = (
       actions: [],
       metrics: [],
       correction: null,
+      insuranceOffer: null,
     };
   }
 
@@ -228,6 +234,8 @@ export const buildTrainerViewModel = (
     headerSummary:
       suppressResolvedOutcome
         ? "Dealer resolving..."
+        : state.phase === "insuranceDecision"
+          ? "Insurance decision pending."
         : state.phase === "roundResolved"
         ? round.resultSummary ?? "Hand complete."
         : "Choose the correct basic strategy move to continue.",
@@ -237,7 +245,7 @@ export const buildTrainerViewModel = (
       id: "dealer",
       title: "Dealer",
       subtitle: round.dealerHoleHidden
-        ? "Hole card stays hidden until the dealer turn."
+        ? undefined
         : suppressResolvedOutcome
           ? "Hole card is revealing before dealer draws continue."
           : "Dealer hand resolved.",
@@ -317,10 +325,20 @@ export const buildTrainerViewModel = (
     ],
     correction: state.correction
       ? {
-          incorrectLabel: actionLabels[state.correction.incorrectAction],
-          recommendedLabel: actionLabels[state.correction.recommendedAction],
+          incorrectLabel:
+            state.correction.incorrectLabel ??
+            actionLabels[state.correction.incorrectAction as PlayerAction],
+          recommendedLabel:
+            state.correction.recommendedLabel ??
+            actionLabels[state.correction.recommendedAction as PlayerAction],
           explanation: state.correction.explanation,
         }
       : null,
+    insuranceOffer:
+      state.phase === "insuranceDecision"
+        ? {
+            amountLabel: formatMoney((round.playerHands[0]?.bet ?? 0) * 0.5),
+          }
+        : null,
   };
 };

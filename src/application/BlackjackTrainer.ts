@@ -1,6 +1,6 @@
 import { blackjackRules } from "@/domain/blackjackRules";
 import { Shoe } from "@/domain/Shoe";
-import { getHandValue } from "@/domain/hand";
+import { getDealerUpcardRank, getHandValue } from "@/domain/hand";
 import {
   settleHand,
   deriveHandStatus,
@@ -17,7 +17,7 @@ import type {
   TrainerState,
 } from "@/application/trainerState";
 import { createEmptyStats } from "@/application/trainerState";
-import type { Card, PlayerAction, RandomSource } from "@/domain/types";
+import type { Card, InsuranceDecision, PlayerAction, RandomSource } from "@/domain/types";
 
 interface BlackjackTrainerOptions {
   defaultWagerAmount?: number;
@@ -34,6 +34,18 @@ const normalizeWagerAmount = (amount: number, fallbackAmount: number): number =>
     blackjackRules.maximumWagerAmount,
     Math.max(blackjackRules.minimumWagerAmount, Math.round(amount)),
   );
+};
+
+const actionLabels: Record<PlayerAction, string> = {
+  hit: "Hit",
+  stand: "Stand",
+  double: "Double",
+  split: "Split",
+};
+
+const insuranceChoiceLabels: Record<InsuranceDecision, string> = {
+  no: "No Insurance",
+  yes: "Yes, Buy Insurance",
 };
 
 const createBaseState = (wagerAmount: number): TrainerState => ({
@@ -200,6 +212,39 @@ export class BlackjackTrainer {
     };
   }
 
+  submitInsuranceDecision(state: TrainerState, decision: InsuranceDecision): TrainerState {
+    if (state.phase !== "insuranceDecision" || !state.round) {
+      return state;
+    }
+
+    if (decision === "yes") {
+      return {
+        ...state,
+        correction: {
+          incorrectLabel: insuranceChoiceLabels.yes,
+          recommendedLabel: insuranceChoiceLabels.no,
+          explanation:
+            "Insurance is a negative-expectation side bet. Basic strategy always declines it because the half-bet cost is not justified just because the dealer shows an ace.",
+        },
+        stats: {
+          ...state.stats,
+          mistakesMade: state.stats.mistakesMade + 1,
+          currentStreak: 0,
+        },
+        currentDecision: state.currentDecision
+          ? { ...state.currentDecision, hadMistake: true }
+          : state.currentDecision,
+      };
+    }
+
+    const nextState = this.recordCorrectDecision({
+      ...state,
+      correction: null,
+    });
+
+    return this.resolveInsuranceDecision(nextState);
+  }
+
   private dealRound(state: TrainerState): TrainerState {
     const playerFirst = this.shoe.drawCard();
     const dealerUpcard = this.shoe.drawCard();
@@ -222,6 +267,31 @@ export class BlackjackTrainer {
 
     const playerValue = getHandValue(playerHand.cards);
     const dealerValue = getHandValue(round.dealerCards);
+    const dealerUpcardKind = getDealerUpcardRank(dealerUpcard);
+
+    if (dealerUpcardKind === "A") {
+      return {
+        ...state,
+        phase: "insuranceDecision",
+        round,
+        correction: null,
+        bannerMessage: state.bannerMessage,
+        nextHandSequence: state.nextHandSequence + 1,
+        currentDecision: this.createInsuranceDecisionTracker(round),
+      };
+    }
+
+    if (dealerUpcardKind === "10" && dealerValue.isBlackjack && !playerValue.isBlackjack) {
+      return {
+        ...state,
+        phase: "playerTurn",
+        round,
+        correction: null,
+        bannerMessage: state.bannerMessage,
+        nextHandSequence: state.nextHandSequence + 1,
+        currentDecision: this.createDecisionTracker(round),
+      };
+    }
 
     if (playerValue.isBlackjack || dealerValue.isBlackjack) {
       const resolvedRound = this.resolveRound({
@@ -289,6 +359,17 @@ export class BlackjackTrainer {
         dealer: round.dealerCards[0].rank,
         cards: activeHand.cards.map((card) => card.id),
         allowedActions,
+      }),
+      hadMistake: false,
+    };
+  }
+
+  private createInsuranceDecisionTracker(round: RoundState) {
+    return {
+      signature: JSON.stringify({
+        dealer: round.dealerCards[0].rank,
+        insurance: true,
+        cards: round.playerHands[0]?.cards.map((card) => card.id) ?? [],
       }),
       hadMistake: false,
     };
@@ -431,6 +512,48 @@ export class BlackjackTrainer {
 
   private hasUnresolvedHands(round: RoundState): boolean {
     return round.playerHands.some((hand) => hand.status === "playing");
+  }
+
+  private resolveInsuranceDecision(state: TrainerState): TrainerState {
+    const round = state.round as RoundState;
+    const playerValue = getHandValue(round.playerHands[0].cards);
+    const dealerValue = getHandValue(round.dealerCards);
+
+    if (!dealerValue.isBlackjack && !playerValue.isBlackjack) {
+      return {
+        ...state,
+        phase: "playerTurn",
+        round,
+        correction: null,
+        currentDecision: this.createDecisionTracker(round),
+      };
+    }
+
+    const resolvedRound = this.resolveRound({
+      ...round,
+      dealerHoleHidden: false,
+    });
+    const shouldReshuffle = this.shoe.needsReshuffle();
+
+    if (shouldReshuffle) {
+      this.shoe.reshuffle();
+    }
+
+    return {
+      ...state,
+      phase: "roundResolved",
+      round: resolvedRound,
+      correction: null,
+      currentDecision: null,
+      bannerMessage: shouldReshuffle ? "Shoe reshuffled for the next hand." : state.bannerMessage,
+      stats: {
+        ...state.stats,
+        totalHandsPlayed: state.stats.totalHandsPlayed + resolvedRound.playerHands.length,
+        winnings:
+          state.stats.winnings +
+          resolvedRound.playerHands.reduce((total, hand) => total + hand.netResult, 0),
+      },
+    };
   }
 
   private resolveRound(round: RoundState): RoundState {
