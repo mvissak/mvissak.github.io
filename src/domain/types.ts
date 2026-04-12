@@ -26,7 +26,7 @@ export type PlayerAction = (typeof playerActions)[number];
 export type DealerUpcardRank = (typeof dealerUpcardOrder)[number];
 export type StrategyMatrixAction = "H" | "S" | "D" | "Ds" | "P";
 export type GamePhase = "ready" | "playerTurn" | "dealerTurn" | "roundResolved";
-export type HandStatus = "playing" | "stood" | "busted" | "blackjack" | "resolved";
+export type HandStatus = "awaitingDeal" | "playing" | "stood" | "busted" | "blackjack" | "resolved";
 export type RoundResult = "win" | "loss" | "push" | "blackjack";
 export type StrategyKind = "hard" | "soft" | "pair";
 

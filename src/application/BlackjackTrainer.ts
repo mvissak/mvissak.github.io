@@ -375,10 +375,11 @@ export class BlackjackTrainer {
         );
         const rightHand = this.createPlayerHand(
           state.nextHandSequence + 1,
-          [rightSeed, this.shoe.drawCard()],
+          [rightSeed],
           activeHand.bet,
           true,
         );
+        rightHand.status = "awaitingDeal";
         playerHands.splice(round.activeHandIndex, 1, leftHand, rightHand);
 
         return {
@@ -397,9 +398,34 @@ export class BlackjackTrainer {
   private advanceRound(round: RoundState): RoundState {
     const nextIndex = round.playerHands.findIndex((hand) => hand.status === "playing");
 
+    if (nextIndex !== -1) {
+      return {
+        ...round,
+        activeHandIndex: nextIndex,
+      };
+    }
+
+    const awaitingDealIndex = round.playerHands.findIndex((hand) => hand.status === "awaitingDeal");
+
+    if (awaitingDealIndex !== -1) {
+      const playerHands = [...round.playerHands];
+      const nextHand = { ...playerHands[awaitingDealIndex] };
+
+      nextHand.cards = [...nextHand.cards, this.shoe.drawCard()];
+      nextHand.status = deriveHandStatus(nextHand.cards, nextHand.originatedFromSplit);
+      playerHands[awaitingDealIndex] = nextHand;
+
+      return {
+        ...round,
+        activeHandIndex: awaitingDealIndex,
+        playerHands,
+        cutCardReachedDuringRound: round.cutCardReachedDuringRound || this.shoe.needsReshuffle(),
+      };
+    }
+
     return {
       ...round,
-      activeHandIndex: nextIndex === -1 ? round.activeHandIndex : nextIndex,
+      activeHandIndex: round.activeHandIndex,
     };
   }
 

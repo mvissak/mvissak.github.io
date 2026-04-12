@@ -135,7 +135,7 @@ describe("blackjack trainer flow", () => {
     expect(afterResolutionSnapshot.shoe.cards).toHaveLength(312);
   });
 
-  test("split hands draw sequentially from the same shoe", () => {
+  test("split leaves the second hand waiting for its first card until the first hand is resolved", () => {
     const trainer = createTrainerWithCards([
       createCard("8"),
       createCard("6", "clubs"),
@@ -150,8 +150,31 @@ describe("blackjack trainer flow", () => {
 
     expect(splitState.round?.playerHands).toHaveLength(2);
     expect(splitState.round?.playerHands[0].cards.map((card) => card.rank)).toEqual(["8", "3"]);
-    expect(splitState.round?.playerHands[1].cards.map((card) => card.rank)).toEqual(["8", "2"]);
+    expect(splitState.round?.playerHands[1].cards.map((card) => card.rank)).toEqual(["8"]);
+    expect(splitState.round?.playerHands[1].status).toBe("awaitingDeal");
     expect(splitState.phase).toBe("playerTurn");
+  });
+
+  test("deals the second split hand only after the first split hand finishes", () => {
+    const trainer = createTrainerWithCards([
+      createCard("8"),
+      createCard("6", "clubs"),
+      createCard("8", "hearts"),
+      createCard("10", "diamonds"),
+      createCard("K", "spades"),
+      createCard("2", "hearts"),
+    ]);
+
+    const initialState = trainer.startNewSession();
+    const splitState = trainer.submitAction(initialState, "split");
+    const afterFirstHand = trainer.submitAction(splitState, "stand");
+
+    expect(afterFirstHand.phase).toBe("playerTurn");
+    expect(afterFirstHand.round?.activeHandIndex).toBe(1);
+    expect(afterFirstHand.round?.playerHands[0].cards.map((card) => card.rank)).toEqual(["8", "K"]);
+    expect(afterFirstHand.round?.playerHands[0].status).toBe("stood");
+    expect(afterFirstHand.round?.playerHands[1].cards.map((card) => card.rank)).toEqual(["8", "2"]);
+    expect(afterFirstHand.round?.playerHands[1].status).toBe("playing");
   });
 
   test("uses the configured wager amount for future hands", () => {

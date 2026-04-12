@@ -254,7 +254,9 @@ export const buildTrainerViewModel = (
           : null;
       const badge =
         hand.outcome === null
-          ? hand.status === "playing"
+          ? hand.status === "awaitingDeal"
+            ? "Waiting"
+            : hand.status === "playing"
             ? "Active"
             : hand.status === "stood"
               ? "Standing"
@@ -269,9 +271,13 @@ export const buildTrainerViewModel = (
         id: hand.id,
         title: round.playerHands.length > 1 ? `Player Hand ${index + 1}` : "Player",
         subtitle: undefined,
-        totalLabel: `Total ${handValue.total}${handValue.isSoft ? " (soft)" : ""}`,
+        totalLabel:
+          hand.status === "awaitingDeal"
+            ? "Awaiting split card"
+            : `Total ${handValue.total}${handValue.isSoft ? " (soft)" : ""}`,
         badge,
-        badgeTone: hand.status === "playing" ? "default" : undefined,
+        badgeTone:
+          hand.status === "playing" || hand.status === "awaitingDeal" ? "default" : undefined,
         betChipStacks: buildBetChipStacks(hand.id, hand.bet, hand.hasDoubled),
         cards: hand.cards.map((card) => ({
           ...card,
