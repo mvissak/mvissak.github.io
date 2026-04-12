@@ -133,6 +133,34 @@
   }
 }
 
+@keyframes round-result-fade {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 20px, 0) scale(0.94);
+  }
+
+  10% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  72% {
+    opacity: 1;
+    transform: translate3d(0, -4px, 0) scale(1.02);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -18px, 0) scale(0.98);
+  }
+}
+
+@layer utilities {
+  .animate-round-result-fade {
+    animation: round-result-fade 3000ms ease-out forwards;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -49,6 +49,8 @@ describe("buildTrainerViewModel", () => {
       [25],
       [25],
     ]);
+    expect(viewModel.playerHands[0].detail).toBeNull();
+    expect(viewModel.roundResultAmountLabel).toBe("$50.00");
   });
 
   test("suppresses resolved outcomes and extra dealer cards while the dealer reveal sequence is in progress", () => {
@@ -100,8 +102,8 @@ describe("buildTrainerViewModel", () => {
     });
 
     expect(viewModel.headerSummary).toBe("Dealer resolving...");
-    expect(viewModel.roundOutcome).toBeNull();
     expect(viewModel.dealerHand?.cards).toHaveLength(2);
-    expect(viewModel.playerHands[0].outcomeCallout).toBeNull();
+    expect(viewModel.playerHands[0].detail).toBeNull();
+    expect(viewModel.roundResultAmountLabel).toBe("$25.00");
   });
 });

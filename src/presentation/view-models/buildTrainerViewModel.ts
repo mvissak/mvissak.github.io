@@ -1,7 +1,7 @@
 import { getHandValue } from "@/domain/hand";
 import { getAllowedActions } from "@/domain/round";
 import type { TrainerState } from "@/application/trainerState";
-import type { Card, PlayerAction, RoundResult } from "@/domain/types";
+import type { Card, PlayerAction } from "@/domain/types";
 import { buildBetChipStacks, type TrainerViewBetStack } from "@/presentation/view-models/betChips";
 
 export interface TrainerViewCard extends Card {
@@ -14,12 +14,10 @@ export interface TrainerViewHand {
   subtitle?: string;
   totalLabel: string;
   badge?: string;
-  badgeTone?: TrainerViewOutcomeTone;
   betChipStacks?: TrainerViewBetStack[];
   detail?: string | null;
   cards: TrainerViewCard[];
   isActive: boolean;
-  outcomeCallout?: TrainerViewOutcomeCallout | null;
 }
 
 export interface TrainerViewAction {
@@ -43,27 +41,17 @@ export interface TrainerViewInsuranceOffer {
   amountLabel: string;
 }
 
-export type TrainerViewOutcomeTone = "default" | "success" | "danger" | "push" | "blackjack";
-
-export interface TrainerViewOutcomeCallout {
-  amountLabel?: string;
-  detail?: string | null;
-  eyebrow?: string;
-  headline: string;
-  tone: TrainerViewOutcomeTone;
-}
-
 export interface TrainerViewModel {
   loading: boolean;
   headerSummary: string;
   bannerMessage: string | null;
-  roundOutcome: TrainerViewOutcomeCallout | null;
   dealerHand: TrainerViewHand | null;
   playerHands: TrainerViewHand[];
   actions: TrainerViewAction[];
   metrics: TrainerViewMetric[];
   correction: TrainerViewCorrection | null;
   insuranceOffer: TrainerViewInsuranceOffer | null;
+  roundResultAmountLabel: string | null;
 }
 
 export interface TrainerViewModelOptions {
@@ -93,103 +81,7 @@ const formatAccuracy = (correct: number, total: number): string => {
   return `${Math.round((correct / total) * 100)}%`;
 };
 
-const formatMoneyDelta = (value: number): string => {
-  if (value > 0) {
-    return `+${formatMoney(value)}`;
-  }
-
-  if (value < 0) {
-    return `-${formatMoney(Math.abs(value))}`;
-  }
-
-  return formatMoney(0);
-};
-
-const getOutcomeTone = (outcome: RoundResult): TrainerViewOutcomeTone => {
-  switch (outcome) {
-    case "win":
-      return "success";
-    case "loss":
-      return "danger";
-    case "push":
-      return "push";
-    case "blackjack":
-      return "blackjack";
-  }
-};
-
-const getOutcomeHeadline = (outcome: RoundResult): string => {
-  switch (outcome) {
-    case "win":
-      return "Win";
-    case "loss":
-      return "Loss";
-    case "push":
-      return "Push";
-    case "blackjack":
-      return "Blackjack";
-  }
-};
-
-const buildHandOutcomeCallout = (
-  outcome: RoundResult,
-  netResult: number,
-  summary: string | null,
-): TrainerViewOutcomeCallout => ({
-  amountLabel: formatMoneyDelta(netResult),
-  detail: summary,
-  headline: getOutcomeHeadline(outcome),
-  tone: getOutcomeTone(outcome),
-});
-
-const pluralize = (count: number, singular: string, plural: string): string =>
-  `${count} ${count === 1 ? singular : plural}`;
-
-const buildRoundOutcome = (state: TrainerState): TrainerViewOutcomeCallout | null => {
-  if (state.phase !== "roundResolved" || !state.round) {
-    return null;
-  }
-
-  const resolvedHands = state.round.playerHands.filter((hand) => hand.outcome !== null);
-
-  if (resolvedHands.length === 0) {
-    return null;
-  }
-
-  if (resolvedHands.length === 1) {
-    const hand = resolvedHands[0];
-
-    return {
-      ...buildHandOutcomeCallout(hand.outcome as RoundResult, hand.netResult, state.bannerMessage),
-      eyebrow: "Round Result",
-    };
-  }
-
-  const totalNet = resolvedHands.reduce((sum, hand) => sum + hand.netResult, 0);
-  const counts = resolvedHands.reduce(
-    (accumulator, hand) => {
-      const outcome = hand.outcome as RoundResult;
-      accumulator[outcome] += 1;
-      return accumulator;
-    },
-    { blackjack: 0, loss: 0, push: 0, win: 0 },
-  );
-  const detailParts = [
-    counts.blackjack > 0 ? pluralize(counts.blackjack, "blackjack", "blackjacks") : null,
-    counts.win > 0 ? pluralize(counts.win, "win", "wins") : null,
-    counts.loss > 0 ? pluralize(counts.loss, "loss", "losses") : null,
-    counts.push > 0 ? pluralize(counts.push, "push", "pushes") : null,
-    state.bannerMessage,
-  ].filter(Boolean);
-
-  return {
-    amountLabel: formatMoneyDelta(totalNet),
-    detail: detailParts.join(" • "),
-    eyebrow: "Round Result",
-    headline: totalNet > 0 ? "Round Win" : totalNet < 0 ? "Round Loss" : "Round Push",
-    tone: totalNet > 0 ? "success" : totalNet < 0 ? "danger" : "push",
-  };
-};
+const formatRoundResultAmount = (value: number): string => formatMoney(Math.abs(value));
 
 export const buildTrainerViewModel = (
   state: TrainerState | null,
@@ -200,13 +92,13 @@ export const buildTrainerViewModel = (
       loading: true,
       headerSummary: "Preparing the table.",
       bannerMessage: null,
-      roundOutcome: null,
       dealerHand: null,
       playerHands: [],
       actions: [],
       metrics: [],
       correction: null,
       insuranceOffer: null,
+      roundResultAmountLabel: null,
     };
   }
 
@@ -228,6 +120,14 @@ export const buildTrainerViewModel = (
   const dealerVisibleValue = round.dealerHoleHidden
     ? `Upcard ${round.dealerCards[0].rank}`
     : `Total ${getHandValue(dealerCardsForDisplay).total}`;
+  const roundResultAmountLabel =
+    state.phase === "roundResolved"
+      ? formatRoundResultAmount(
+          round.playerHands
+            .filter((hand) => hand.outcome !== null)
+            .reduce((sum, hand) => sum + hand.netResult, 0),
+        )
+      : null;
 
   return {
     loading: false,
@@ -240,7 +140,6 @@ export const buildTrainerViewModel = (
         ? round.resultSummary ?? "Hand complete."
         : "Choose the correct basic strategy move to continue.",
     bannerMessage: suppressResolvedOutcome ? null : state.bannerMessage,
-    roundOutcome: suppressResolvedOutcome ? null : buildRoundOutcome(state),
     dealerHand: {
       id: "dealer",
       title: "Dealer",
@@ -256,10 +155,6 @@ export const buildTrainerViewModel = (
     },
     playerHands: round.playerHands.map((hand, index) => {
       const handValue = getHandValue(hand.cards);
-      const outcomeCallout =
-        hand.outcome !== null && !suppressResolvedOutcome
-          ? buildHandOutcomeCallout(hand.outcome, hand.netResult, hand.summary)
-          : null;
       const badge =
         hand.outcome === null
           ? hand.status === "awaitingDeal"
@@ -284,16 +179,13 @@ export const buildTrainerViewModel = (
             ? "Awaiting split card"
             : `Total ${handValue.total}${handValue.isSoft ? " (soft)" : ""}`,
         badge,
-        badgeTone:
-          hand.status === "playing" || hand.status === "awaitingDeal" ? "default" : undefined,
         betChipStacks: buildBetChipStacks(hand.id, hand.bet, hand.hasDoubled),
         cards: hand.cards.map((card) => ({
           ...card,
           faceDown: false,
         })),
         isActive: state.phase === "playerTurn" && index === round.activeHandIndex,
-        detail: suppressResolvedOutcome ? null : outcomeCallout ? null : hand.summary,
-        outcomeCallout,
+        detail: state.phase === "roundResolved" || suppressResolvedOutcome ? null : hand.summary,
       };
     }),
     actions: allowedActions
@@ -340,5 +232,6 @@ export const buildTrainerViewModel = (
             amountLabel: formatMoney((round.playerHands[0]?.bet ?? 0) * 0.5),
           }
         : null,
+    roundResultAmountLabel,
   };
 };

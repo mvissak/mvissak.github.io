@@ -37,6 +37,7 @@ export const themeTokens = {
     22: "5.5rem",
     26: "6.5rem",
     30: "7.5rem",
+    34: "8.5rem",
   },
   radii: {
     card: "1rem",

@@ -1,7 +1,6 @@
 "use client";
 
 import { BetChipRack } from "@/presentation/components/BetChipRack";
-import { OutcomeCallout } from "@/presentation/components/OutcomeCallout";
 import { PlayingCard } from "@/presentation/components/PlayingCard";
 import type { TrainerViewHand } from "@/presentation/view-models/buildTrainerViewModel";
 
@@ -30,11 +29,6 @@ export function HandArea({ hand, motionEnabled }: HandAreaProps) {
           ) : null}
         </div>
       </div>
-      {hand.outcomeCallout ? (
-        <div className="mt-4">
-          <OutcomeCallout callout={hand.outcomeCallout} compact />
-        </div>
-      ) : null}
       <div className="mt-4 flex flex-wrap items-end gap-3">
         {hand.cards.map((card) => (
           <PlayingCard

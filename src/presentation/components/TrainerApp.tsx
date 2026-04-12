@@ -6,16 +6,15 @@ import type { RandomSource } from "@/domain/types";
 import { CashOutModal } from "@/presentation/components/CashOutModal";
 import { ConfirmationModal } from "@/presentation/components/ConfirmationModal";
 import { CorrectionModal } from "@/presentation/components/CorrectionModal";
-import { DealerBlackjackOverlay } from "@/presentation/components/DealerBlackjackOverlay";
 import { HandArea } from "@/presentation/components/HandArea";
 import { HeaderBar } from "@/presentation/components/HeaderBar";
 import { InsuranceOfferModal } from "@/presentation/components/InsuranceOfferModal";
+import { RoundResultOverlay } from "@/presentation/components/RoundResultOverlay";
 import { StatsPanel } from "@/presentation/components/StatsPanel";
 import { StrategyReferencePanel } from "@/presentation/components/StrategyReferencePanel";
 import { TableSurface } from "@/presentation/components/TableSurface";
 import { WaitressDrinkModal } from "@/presentation/components/WaitressDrinkModal";
 import { WaitressReactionModal } from "@/presentation/components/WaitressReactionModal";
-import { WinCelebrationOverlay } from "@/presentation/components/WinCelebrationOverlay";
 import { useTrainerController } from "@/presentation/hooks/useTrainerController";
 import { buildStrategyReferenceViewModel } from "@/presentation/view-models/buildStrategyReferenceViewModel";
 import { buildTrainerViewModel } from "@/presentation/view-models/buildTrainerViewModel";
@@ -66,8 +65,10 @@ export function TrainerApp({
 
   return (
     <TableSurface>
-      <DealerBlackjackOverlay active={controller.dealerBlackjackReactionActive} />
-      <WinCelebrationOverlay active={controller.winCelebrationActive} />
+      <RoundResultOverlay
+        amountLabel={viewModel.roundResultAmountLabel}
+        reaction={controller.roundReaction}
+      />
 
       <HeaderBar
         onNewSession={controller.requestResetSession}
@@ -91,6 +92,7 @@ export function TrainerApp({
         onCashOut={controller.openCashOut}
         onAction={controller.takeAction}
         onNextHand={controller.nextHand}
+        resultReactionActive={controller.resultReactionActive}
         roundResolved={controller.state?.phase === "roundResolved"}
       />
 
