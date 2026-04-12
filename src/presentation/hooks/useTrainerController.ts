@@ -1,0 +1,400 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { BlackjackTrainer } from "@/application/BlackjackTrainer";
+import {
+  dismissCorrection,
+  restoreSession,
+  startNewSession,
+  startNextHand,
+  submitPlayerAction,
+  updateWagerAmount,
+} from "@/application/useCases";
+import type { TrainerState } from "@/application/trainerState";
+import { SessionStorageTrainerStore } from "@/infrastructure/SessionStorageTrainerStore";
+import { MathRandomSource } from "@/infrastructure/random";
+import type { TrainerStateStore } from "@/application/ports";
+import type { PlayerAction, RandomSource } from "@/domain/types";
+import { themeTokens } from "@/presentation/theme/tokens";
+import {
+  buildCashOutMessage,
+  type TrainerViewCashOut,
+} from "@/presentation/view-models/buildCashOutMessage";
+import { useDrinkServiceInterruptions } from "@/presentation/hooks/useDrinkServiceInterruptions";
+
+interface UseTrainerControllerOptions {
+  trainer?: BlackjackTrainer;
+  store?: TrainerStateStore;
+  autoAdvanceDelayMs?: number;
+  dealerRevealDelayMs?: number;
+  dealerDrawIntervalMs?: number;
+  drinkOfferInitialDelayMs?: number;
+  drinkOfferMaximumIntervalMs?: number;
+  drinkOfferMinimumIntervalMs?: number;
+  drinkOfferRandomSource?: RandomSource;
+  drinkOfferResponseTimeoutMs?: number;
+  winCelebrationDurationMs?: number;
+}
+
+const parseDurationToMs = (value: string): number => {
+  const numericPortion = Number.parseFloat(value);
+
+  if (!Number.isFinite(numericPortion)) {
+    return 0;
+  }
+
+  if (value.endsWith("ms")) {
+    return numericPortion;
+  }
+
+  if (value.endsWith("s")) {
+    return numericPortion * 1_000;
+  }
+
+  return numericPortion;
+};
+
+export function useTrainerController(options: UseTrainerControllerOptions = {}) {
+  const trainerRef = useRef(options.trainer ?? new BlackjackTrainer({ randomSource: new MathRandomSource() }));
+  const storeRef = useRef(options.store ?? new SessionStorageTrainerStore());
+  const drinkOfferRandomSourceRef = useRef(options.drinkOfferRandomSource ?? new MathRandomSource());
+  const initializedRef = useRef(false);
+  const previousStateRef = useRef<TrainerState | null>(null);
+  const autoAdvanceTimerRef = useRef<number | null>(null);
+  const autoAdvanceIntervalRef = useRef<number | null>(null);
+  const autoAdvanceDeadlineRef = useRef<number | null>(null);
+  const dealerRevealTimerRef = useRef<number | null>(null);
+  const dealerDrawTimerRef = useRef<number | null>(null);
+  const roundReactionTimerRef = useRef<number | null>(null);
+  const reactedRoundSignatureRef = useRef<string | null>(null);
+  const [state, setState] = useState<TrainerState | null>(null);
+  const [cashOutMessage, setCashOutMessage] = useState<TrainerViewCashOut | null>(null);
+  const [countdownMsRemaining, setCountdownMsRemaining] = useState(0);
+  const [dealerVisibleCardCount, setDealerVisibleCardCount] = useState<number | null>(null);
+  const [dealerRevealComplete, setDealerRevealComplete] = useState(true);
+  const [isCashOutOpen, setIsCashOutOpen] = useState(false);
+  const [isResetSessionConfirmationOpen, setIsResetSessionConfirmationOpen] = useState(false);
+  const [roundReaction, setRoundReaction] = useState<"dealerBlackjack" | "win" | null>(null);
+  const [sessionKey, setSessionKey] = useState(0);
+  const autoAdvanceDelayMs = options.autoAdvanceDelayMs ?? 5_000;
+  const dealerRevealDelayMs =
+    options.dealerRevealDelayMs ?? parseDurationToMs(themeTokens.motion.flip);
+  const dealerDrawIntervalMs =
+    options.dealerDrawIntervalMs ?? parseDurationToMs(themeTokens.motion.slow);
+  const winCelebrationDurationMs = options.winCelebrationDurationMs ?? 3_000;
+  const drinkInterruptions = useDrinkServiceInterruptions({
+    initialDelayMs: options.drinkOfferInitialDelayMs,
+    isBlocked:
+      !state ||
+      state.correction !== null ||
+      isCashOutOpen ||
+      isResetSessionConfirmationOpen ||
+      roundReaction !== null ||
+      !dealerRevealComplete,
+    maximumIntervalMs: options.drinkOfferMaximumIntervalMs,
+    minimumIntervalMs: options.drinkOfferMinimumIntervalMs,
+    randomSource: drinkOfferRandomSourceRef.current,
+    responseTimeoutMs: options.drinkOfferResponseTimeoutMs,
+    sessionKey,
+  });
+  const isNextHandCountdownBlocked =
+    drinkInterruptions.isInterrupting || isCashOutOpen || isResetSessionConfirmationOpen;
+
+  const clearAutoAdvanceCountdown = () => {
+    if (autoAdvanceTimerRef.current !== null) {
+      window.clearTimeout(autoAdvanceTimerRef.current);
+      autoAdvanceTimerRef.current = null;
+    }
+
+    if (autoAdvanceIntervalRef.current !== null) {
+      window.clearInterval(autoAdvanceIntervalRef.current);
+      autoAdvanceIntervalRef.current = null;
+    }
+
+    autoAdvanceDeadlineRef.current = null;
+    setCountdownMsRemaining(0);
+  };
+
+  const clearDealerRevealSequence = () => {
+    if (dealerRevealTimerRef.current !== null) {
+      window.clearTimeout(dealerRevealTimerRef.current);
+      dealerRevealTimerRef.current = null;
+    }
+
+    if (dealerDrawTimerRef.current !== null) {
+      window.clearTimeout(dealerDrawTimerRef.current);
+      dealerDrawTimerRef.current = null;
+    }
+
+    setDealerVisibleCardCount(null);
+    setDealerRevealComplete(true);
+  };
+
+  const clearRoundReaction = () => {
+    if (roundReactionTimerRef.current !== null) {
+      window.clearTimeout(roundReactionTimerRef.current);
+      roundReactionTimerRef.current = null;
+    }
+
+    setRoundReaction(null);
+  };
+
+  const syncCountdownRemaining = () => {
+    if (autoAdvanceDeadlineRef.current === null) {
+      setCountdownMsRemaining(0);
+      return;
+    }
+
+    const remaining = Math.max(0, autoAdvanceDeadlineRef.current - Date.now());
+    setCountdownMsRemaining(remaining);
+
+    if (remaining === 0 && autoAdvanceIntervalRef.current !== null) {
+      window.clearInterval(autoAdvanceIntervalRef.current);
+      autoAdvanceIntervalRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    if (initializedRef.current) {
+      return;
+    }
+
+    const snapshot = storeRef.current.load();
+    const initialState = snapshot
+      ? restoreSession(trainerRef.current, snapshot)
+      : startNewSession(trainerRef.current);
+
+    initializedRef.current = true;
+    setState(initialState);
+    setSessionKey(1);
+  }, []);
+
+  useEffect(() => {
+    if (!initializedRef.current || !state) {
+      return;
+    }
+
+    storeRef.current.save(trainerRef.current.createSnapshot(state));
+  }, [state]);
+
+  useEffect(() => {
+    if (!state || state.phase !== "roundResolved" || !state.round) {
+      clearDealerRevealSequence();
+      return;
+    }
+
+    const previousState = previousStateRef.current;
+    const justResolved = previousState?.phase !== "roundResolved";
+
+    if (!justResolved || state.round.dealerCards.length <= 2) {
+      clearDealerRevealSequence();
+      return;
+    }
+
+    clearDealerRevealSequence();
+    setDealerVisibleCardCount(2);
+    setDealerRevealComplete(false);
+
+    let nextVisibleCardCount = 2;
+    const totalDealerCards = state.round.dealerCards.length;
+
+    const revealNextDealerCard = () => {
+      nextVisibleCardCount += 1;
+
+      if (nextVisibleCardCount >= totalDealerCards) {
+        setDealerVisibleCardCount(null);
+        setDealerRevealComplete(true);
+        dealerDrawTimerRef.current = null;
+        return;
+      }
+
+      setDealerVisibleCardCount(nextVisibleCardCount);
+      dealerDrawTimerRef.current = window.setTimeout(revealNextDealerCard, dealerDrawIntervalMs);
+    };
+
+    dealerRevealTimerRef.current = window.setTimeout(revealNextDealerCard, dealerRevealDelayMs);
+
+    return () => {
+      clearDealerRevealSequence();
+    };
+  }, [dealerDrawIntervalMs, dealerRevealDelayMs, state]);
+
+  useEffect(() => {
+    previousStateRef.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    if (!state || state.phase !== "roundResolved" || !dealerRevealComplete || !state.round) {
+      return;
+    }
+
+    const roundSignature = JSON.stringify({
+      hands: state.round.playerHands.map((hand) => ({
+        id: hand.id,
+        netResult: hand.netResult,
+        outcome: hand.outcome,
+      })),
+      nextHandSequence: state.nextHandSequence,
+    });
+
+    if (reactedRoundSignatureRef.current === roundSignature) {
+      return;
+    }
+
+    reactedRoundSignatureRef.current = roundSignature;
+    const hasDealerBlackjackLoss = state.round.playerHands.some(
+      (hand) => hand.summary === "Dealer blackjack.",
+    );
+    const hasWinningHand = state.round.playerHands.some(
+      (hand) => hand.outcome === "win" || hand.outcome === "blackjack",
+    );
+
+    if (!hasDealerBlackjackLoss && !hasWinningHand) {
+      clearRoundReaction();
+      return;
+    }
+
+    clearRoundReaction();
+    setRoundReaction(hasDealerBlackjackLoss ? "dealerBlackjack" : "win");
+    roundReactionTimerRef.current = window.setTimeout(() => {
+      setRoundReaction(null);
+      roundReactionTimerRef.current = null;
+    }, winCelebrationDurationMs);
+  }, [dealerRevealComplete, state, winCelebrationDurationMs]);
+
+  useEffect(() => {
+    if (
+      !state ||
+      state.phase !== "roundResolved" ||
+      !dealerRevealComplete ||
+      isNextHandCountdownBlocked
+    ) {
+      clearAutoAdvanceCountdown();
+      return;
+    }
+
+    clearAutoAdvanceCountdown();
+    autoAdvanceDeadlineRef.current = Date.now() + autoAdvanceDelayMs;
+    setCountdownMsRemaining(autoAdvanceDelayMs);
+    autoAdvanceIntervalRef.current = window.setInterval(syncCountdownRemaining, 100);
+    autoAdvanceTimerRef.current = window.setTimeout(() => {
+      clearAutoAdvanceCountdown();
+      setState((currentState) =>
+        currentState ? startNextHand(trainerRef.current, currentState) : currentState,
+      );
+    }, autoAdvanceDelayMs);
+
+    return () => {
+      clearAutoAdvanceCountdown();
+    };
+  }, [autoAdvanceDelayMs, dealerRevealComplete, isNextHandCountdownBlocked, state]);
+
+  const confirmResetSession = () => {
+    reactedRoundSignatureRef.current = null;
+    clearDealerRevealSequence();
+    clearAutoAdvanceCountdown();
+    clearRoundReaction();
+    setIsCashOutOpen(false);
+    setCashOutMessage(null);
+    setIsResetSessionConfirmationOpen(false);
+    setState((currentState) =>
+      startNewSession(trainerRef.current, currentState?.wagerAmount),
+    );
+    setSessionKey((current) => current + 1);
+  };
+
+  const requestResetSession = () => {
+    setIsResetSessionConfirmationOpen(true);
+  };
+
+  const cancelResetSession = () => {
+    setIsResetSessionConfirmationOpen(false);
+  };
+
+  const openCashOut = () => {
+    if (!state) {
+      return;
+    }
+
+    reactedRoundSignatureRef.current = null;
+    clearDealerRevealSequence();
+    clearAutoAdvanceCountdown();
+    clearRoundReaction();
+    setIsResetSessionConfirmationOpen(false);
+    setCashOutMessage(buildCashOutMessage(state.stats.winnings));
+    setIsCashOutOpen(true);
+    setState((currentState) =>
+      startNewSession(trainerRef.current, currentState?.wagerAmount),
+    );
+    setSessionKey((current) => current + 1);
+  };
+
+  const closeCashOut = () => {
+    setIsCashOutOpen(false);
+    setCashOutMessage(null);
+  };
+
+  const nextHand = () => {
+    clearDealerRevealSequence();
+    clearAutoAdvanceCountdown();
+    clearRoundReaction();
+    setIsCashOutOpen(false);
+    setCashOutMessage(null);
+    setState((currentState) =>
+      currentState ? startNextHand(trainerRef.current, currentState) : currentState,
+    );
+  };
+
+  const takeAction = (action: PlayerAction) => {
+    setState((currentState) =>
+      currentState ? submitPlayerAction(trainerRef.current, currentState, action) : currentState,
+    );
+  };
+
+  const closeCorrection = () => {
+    setState((currentState) =>
+      currentState ? dismissCorrection(trainerRef.current, currentState) : currentState,
+    );
+  };
+
+  const changeWagerAmount = (wagerAmount: number) => {
+    setState((currentState) =>
+      currentState ? updateWagerAmount(trainerRef.current, currentState, wagerAmount) : currentState,
+    );
+  };
+
+  return {
+    canAdvanceToNextHand: state?.phase === "roundResolved" && dealerRevealComplete,
+    countdownProgressPercent:
+      state?.phase === "roundResolved" && dealerRevealComplete && autoAdvanceDelayMs > 0
+        ? ((autoAdvanceDelayMs - countdownMsRemaining) / autoAdvanceDelayMs) * 100
+        : 0,
+    countdownSecondsRemaining:
+      state?.phase === "roundResolved" && dealerRevealComplete
+        ? Math.max(0, Math.ceil(countdownMsRemaining / 1000))
+        : 0,
+    cancelResetSession,
+    cashOutMessage,
+    closeCashOut,
+    dismissDrinkReaction: drinkInterruptions.dismissReaction,
+    dealerBlackjackReactionActive: roundReaction === "dealerBlackjack",
+    dealerVisibleCardCount,
+    drinkOfferSecondsRemaining: drinkInterruptions.offerSecondsRemaining,
+    confirmResetSession,
+    isCashOutOpen,
+    isDrinkOfferOpen: drinkInterruptions.isOfferOpen,
+    isResetSessionConfirmationOpen,
+    openCashOut,
+    orderDrink: drinkInterruptions.chooseDrink,
+    requestResetSession,
+    suppressResolvedOutcome: state?.phase === "roundResolved" && !dealerRevealComplete,
+    waitressReaction: drinkInterruptions.reaction,
+    winCelebrationActive: roundReaction === "win",
+    nextHand,
+    state,
+    updateWagerAmount: changeWagerAmount,
+    takeAction,
+    closeCorrection,
+    wagerAmount: state?.wagerAmount ?? 25,
+  };
+}
