@@ -11,11 +11,13 @@ import { HandArea } from "@/presentation/components/HandArea";
 import { HeaderBar } from "@/presentation/components/HeaderBar";
 import { InsuranceOfferModal } from "@/presentation/components/InsuranceOfferModal";
 import { StatsPanel } from "@/presentation/components/StatsPanel";
+import { StrategyReferencePanel } from "@/presentation/components/StrategyReferencePanel";
 import { TableSurface } from "@/presentation/components/TableSurface";
 import { WaitressDrinkModal } from "@/presentation/components/WaitressDrinkModal";
 import { WaitressReactionModal } from "@/presentation/components/WaitressReactionModal";
 import { WinCelebrationOverlay } from "@/presentation/components/WinCelebrationOverlay";
 import { useTrainerController } from "@/presentation/hooks/useTrainerController";
+import { buildStrategyReferenceViewModel } from "@/presentation/view-models/buildStrategyReferenceViewModel";
 import { buildTrainerViewModel } from "@/presentation/view-models/buildTrainerViewModel";
 
 interface TrainerAppProps {
@@ -59,6 +61,7 @@ export function TrainerApp({
     dealerVisibleCardCount: controller.dealerVisibleCardCount,
     suppressResolvedOutcome: controller.suppressResolvedOutcome,
   });
+  const strategyReference = buildStrategyReferenceViewModel();
   const motionEnabled = true;
 
   return (
@@ -92,6 +95,7 @@ export function TrainerApp({
       />
 
       <StatsPanel metrics={viewModel.metrics} />
+      <StrategyReferencePanel reference={strategyReference} />
 
       <CashOutModal
         cashOut={controller.cashOutMessage}

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { getBasicStrategyDecision } from "@/domain/strategy";
+import { getBasicStrategyDecision, getBasicStrategyReference } from "@/domain/strategy";
 import { createCard } from "@tests/helpers";
 
 const fullActions = {
@@ -47,7 +47,7 @@ describe("basic strategy engine", () => {
   test("falls back from Ds to stand when doubling is unavailable", () => {
     const decision = getBasicStrategyDecision(
       [createCard("A"), createCard("7", "hearts")],
-      createCard("2", "clubs"),
+      createCard("3", "clubs"),
       { hit: true, stand: true, double: false, split: false },
     );
 
@@ -55,8 +55,20 @@ describe("basic strategy engine", () => {
     expect(decision.action).toBe("stand");
     expect(decision.fallbackApplied).toBe(true);
     expect(decision.explanation).toContain(
-      "double if allowed, otherwise stand against dealer upcards 2, 3, 4, 5, or 6",
+      "double if allowed, otherwise stand against dealer upcards 3, 4, 5, or 6",
     );
+  });
+
+  test("stands on A,7 against dealer 2 even when doubling is available", () => {
+    const decision = getBasicStrategyDecision(
+      [createCard("A"), createCard("7", "hearts")],
+      createCard("2", "clubs"),
+      fullActions,
+    );
+
+    expect(decision.code).toBe("S");
+    expect(decision.action).toBe("stand");
+    expect(decision.fallbackApplied).toBe(false);
   });
 
   test("treats 5,5 as hard 10 instead of a split pair", () => {
@@ -100,7 +112,27 @@ describe("basic strategy engine", () => {
     );
 
     expect(decision.explanation).toContain(
-      "General rule: with A,7, double if allowed, otherwise stand against dealer upcards 2, 3, 4, 5, or 6; stand against dealer upcards 7 or 8; hit against dealer upcards 9, 10, or A.",
+      "General rule: with A,7, stand against dealer upcards 2; double if allowed, otherwise stand against dealer upcards 3, 4, 5, or 6; stand against dealer upcards 7 or 8; hit against dealer upcards 9, 10, or A.",
+    );
+  });
+
+  test("builds a plain-English reference from the tracked total-based chart", () => {
+    const reference = getBasicStrategyReference();
+    const hardTotals = reference.sections.find((section) => section.title === "Hard Totals");
+    const softTotals = reference.sections.find((section) => section.title === "Soft Totals");
+    const pairs = reference.sections.find((section) => section.title === "Pairs");
+
+    expect(reference.assumptions).toContain(
+      "Composition-dependent deviations are not used. A multi-card hard or soft total is played the same way as the same total built from two cards unless the chart itself changes because doubling or splitting is no longer allowed.",
+    );
+    expect(hardTotals?.rows.find((row) => row.label === "Hard 16")?.summary).toBe(
+      "stand against dealer upcards 2, 3, 4, 5, or 6; hit against dealer upcards 7, 8, 9, 10, or A.",
+    );
+    expect(softTotals?.rows.find((row) => row.label === "Soft A,7")?.summary).toBe(
+      "stand against dealer upcards 2; double if allowed, otherwise stand against dealer upcards 3, 4, 5, or 6; stand against dealer upcards 7 or 8; hit against dealer upcards 9, 10, or A.",
+    );
+    expect(pairs?.rows.find((row) => row.label === "Pair 5,5")?.summary).toBe(
+      "double if allowed, otherwise hit against dealer upcards 2, 3, 4, 5, 6, 7, 8, or 9; hit against dealer upcards 10 or A.",
     );
   });
 });

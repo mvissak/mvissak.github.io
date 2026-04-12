@@ -1,4 +1,5 @@
 import { dealerUpcardOrder } from "@/domain/types";
+import { blackjackRules } from "@/domain/blackjackRules";
 import { getDealerUpcardRank, getHandProfile } from "@/domain/hand";
 import type {
   AllowedActions,
@@ -8,6 +9,21 @@ import type {
   StrategyDecision,
   StrategyMatrixAction,
 } from "@/domain/types";
+
+export interface BasicStrategyReferenceRow {
+  label: string;
+  summary: string;
+}
+
+export interface BasicStrategyReferenceSection {
+  title: string;
+  rows: BasicStrategyReferenceRow[];
+}
+
+export interface BasicStrategyReference {
+  assumptions: string[];
+  sections: BasicStrategyReferenceSection[];
+}
 
 const hardStrategyTable = {
   "5": ["H", "H", "H", "H", "H", "H", "H", "H", "H", "H"],
@@ -35,7 +51,7 @@ const softStrategyTable = {
   "A,4": ["H", "H", "D", "D", "D", "H", "H", "H", "H", "H"],
   "A,5": ["H", "H", "D", "D", "D", "H", "H", "H", "H", "H"],
   "A,6": ["H", "D", "D", "D", "D", "H", "H", "H", "H", "H"],
-  "A,7": ["Ds", "Ds", "Ds", "Ds", "Ds", "S", "S", "H", "H", "H"],
+  "A,7": ["S", "Ds", "Ds", "Ds", "Ds", "S", "S", "H", "H", "H"],
   "A,8": ["S", "S", "S", "S", "S", "S", "S", "S", "S", "S"],
   "A,9": ["S", "S", "S", "S", "S", "S", "S", "S", "S", "S"],
 } as const satisfies Record<string, readonly StrategyMatrixAction[]>;
@@ -114,6 +130,12 @@ const getStrategyRow = (rowKey: string): readonly StrategyMatrixAction[] => {
 };
 
 const buildGenericRuleSummary = (handLabel: string, rowKey: string): string => {
+  const segmentSummary = buildRuleSegmentSummary(rowKey);
+
+  return `General rule: with ${handLabel}, ${segmentSummary}.`;
+};
+
+const buildRuleSegmentSummary = (rowKey: string): string => {
   const row = getStrategyRow(rowKey);
   const segments = row.reduce<
     Array<{ code: StrategyMatrixAction; upcards: DealerUpcardRank[] }>
@@ -137,7 +159,7 @@ const buildGenericRuleSummary = (handLabel: string, rowKey: string): string => {
     )
     .join("; ");
 
-  return `General rule: with ${handLabel}, ${segmentSummary}.`;
+  return segmentSummary;
 };
 
 const buildExplanation = (
@@ -203,3 +225,43 @@ export const getBasicStrategyDecision = (
     ),
   };
 };
+
+const buildReferenceRows = (
+  rows: Record<string, readonly StrategyMatrixAction[]>,
+  labelFormatter: (rowKey: string) => string,
+): BasicStrategyReferenceRow[] =>
+  Object.keys(rows).map((rowKey) => ({
+    label: labelFormatter(rowKey),
+    summary: `${buildRuleSegmentSummary(rowKey)}.`,
+  }));
+
+export const getBasicStrategyReference = (): BasicStrategyReference => ({
+  assumptions: [
+    `This trainer grades decisions against a total-based ${blackjackRules.deckCount}-deck dealer-stands-on-soft-17 basic-strategy chart.`,
+    "Composition-dependent deviations are not used. A multi-card hard or soft total is played the same way as the same total built from two cards unless the chart itself changes because doubling or splitting is no longer allowed.",
+    "Dealer 10 means any ten-value upcard: 10, J, Q, or K.",
+    "Rows marked double if allowed fall back to hit or stand exactly as written when doubling is unavailable.",
+    "5,5 is treated as a hard 10, not as a split pair, and 10,10 always stands.",
+    "Insurance is always declined. It is treated as a negative-expectation side bet, not part of the main hand strategy.",
+  ],
+  sections: [
+    {
+      title: "Hard Totals",
+      rows: buildReferenceRows(hardStrategyTable, (rowKey) => `Hard ${rowKey}`),
+    },
+    {
+      title: "Soft Totals",
+      rows: [
+        {
+          label: "Soft totals below 13",
+          summary: `${buildRuleSegmentSummary("soft-below-13")}.`,
+        },
+        ...buildReferenceRows(softStrategyTable, (rowKey) => `Soft ${rowKey}`),
+      ],
+    },
+    {
+      title: "Pairs",
+      rows: buildReferenceRows(pairStrategyTable, (rowKey) => `Pair ${rowKey}`),
+    },
+  ],
+});

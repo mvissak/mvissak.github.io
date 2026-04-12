@@ -30,8 +30,8 @@ export function HeaderBar({
         </p>
         <p className="mt-2 max-w-3xl text-sm text-ivory/70">
           Table rules: 6-deck shoe, blackjack pays 3:2, dealer stands on soft 17 and all
-          totals 17+, double on any two cards including after splits, no surrender or
-          insurance, and a ${blackjackRules.minimumWagerAmount}-${blackjackRules.maximumWagerAmount} bet range.
+          totals 17+, double on any two cards including after splits, no surrender,
+          insurance is always declined in training, and a ${blackjackRules.minimumWagerAmount}-${blackjackRules.maximumWagerAmount} bet range.
         </p>
       </div>
       <div className="flex flex-wrap gap-3">

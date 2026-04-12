@@ -104,6 +104,30 @@ describe("TrainerApp", () => {
     ).not.toBeInTheDocument();
   });
 
+  test("renders the tracked strategy reference in plain English at the bottom of the page", async () => {
+    const trainer = createTrainerWithCards([
+      createCard("5"),
+      createCard("2", "clubs"),
+      createCard("A", "hearts"),
+      createCard("10", "diamonds"),
+    ]);
+
+    render(React.createElement(TrainerApp, { trainer }));
+
+    expect(await screen.findByText("Tracked Strategy, In Plain English")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /This trainer uses a total-based chart, not composition-dependent deviations/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Dealer 10 means any ten-value upcard: 10, J, Q, or K\./i),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Hard 16:")).toBeInTheDocument();
+    expect(screen.getByText("Soft A,7:")).toBeInTheDocument();
+    expect(screen.getByText("Pair 10,10:")).toBeInTheDocument();
+  });
+
   test("shows the next-hand countdown in the action area only after the round resolves", async () => {
     const user = userEvent.setup();
     const trainer = createTrainerWithCards([
@@ -276,8 +300,16 @@ describe("TrainerApp", () => {
 
   test("treats bottled water as the wrong answer from the waitress", async () => {
     vi.useFakeTimers();
+    const trainer = createTrainerWithCards([
+      createCard("10"),
+      createCard("7", "clubs"),
+      createCard("Q", "hearts"),
+      createCard("Q", "diamonds"),
+    ]);
+
     render(
       React.createElement(TrainerApp, {
+        trainer,
         drinkOfferInitialDelayMs: 10,
         drinkOfferMaximumIntervalMs: 100,
         drinkOfferMinimumIntervalMs: 100,
