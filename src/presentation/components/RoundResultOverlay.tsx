@@ -5,6 +5,7 @@ import { playDisappointedSound } from "@/presentation/audio/playDisappointedSoun
 import { playWinChime } from "@/presentation/audio/playWinChime";
 import { ConfettiLayer } from "@/presentation/components/ConfettiLayer";
 import { PoopIcon } from "@/presentation/components/PoopIcon";
+import { ViewportPortal } from "@/presentation/components/ViewportPortal";
 import type { RoundReactionType } from "@/presentation/roundReaction";
 
 interface RoundResultOverlayProps {
@@ -78,40 +79,42 @@ export function RoundResultOverlay({ amountLabel, reaction }: RoundResultOverlay
 
   const styles = overlayStyles[reaction];
   const signedAmountLabel =
-    amountLabel && reaction === "victory"
+    amountLabel && (reaction === "victory" || reaction === "blackjack")
       ? `+${amountLabel}`
       : amountLabel && (reaction === "loss" || reaction === "dealerBlackjack")
         ? `-${amountLabel}`
         : amountLabel;
 
   return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none fixed inset-0 z-50 grid place-items-center overflow-hidden"
-      data-testid="round-result-reaction"
-    >
-      <div className={`absolute inset-0 ${styles.backdropClassName}`} />
-      {reaction === "victory" ? <ConfettiLayer /> : null}
-      <div className="relative flex flex-col items-center gap-4 animate-round-result-fade px-6 text-center">
-        {styles.showPoopIcon ? (
-          <PoopIcon
-            className="h-[clamp(4.5rem,24vw,9rem)] w-[clamp(4.5rem,24vw,9rem)] drop-shadow-[0_16px_28px_rgba(0,0,0,0.45)]"
-            testId="dealer-blackjack-icon"
-          />
-        ) : null}
-        <p
-          className={`font-body text-[clamp(2.75rem,11vw,5.75rem)] font-black uppercase tracking-[0.16em] drop-shadow-[0_10px_24px_rgba(0,0,0,0.7)] ${styles.textClassName}`}
-        >
-          {styles.label}
-        </p>
-        {signedAmountLabel ? (
+    <ViewportPortal>
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-50 grid place-items-center overflow-hidden"
+        data-testid="round-result-reaction"
+      >
+        <div className={`absolute inset-0 ${styles.backdropClassName}`} />
+        {reaction === "victory" ? <ConfettiLayer /> : null}
+        <div className="relative flex flex-col items-center gap-4 animate-round-result-fade px-6 text-center">
+          {styles.showPoopIcon ? (
+            <PoopIcon
+              className="h-[clamp(4.5rem,24vw,9rem)] w-[clamp(4.5rem,24vw,9rem)] drop-shadow-[0_16px_28px_rgba(0,0,0,0.45)]"
+              testId="dealer-blackjack-icon"
+            />
+          ) : null}
           <p
-            className={`font-body text-[clamp(2.1rem,7vw,3.35rem)] font-extrabold tracking-[0.04em] drop-shadow-[0_8px_18px_rgba(0,0,0,0.65)] ${styles.textClassName}`}
+            className={`font-body text-[clamp(2.75rem,11vw,5.75rem)] font-black uppercase tracking-[0.16em] drop-shadow-[0_10px_24px_rgba(0,0,0,0.7)] ${styles.textClassName}`}
           >
-            {signedAmountLabel}
+            {styles.label}
           </p>
-        ) : null}
+          {signedAmountLabel ? (
+            <p
+              className={`font-body text-[clamp(2.1rem,7vw,3.35rem)] font-extrabold tracking-[0.04em] drop-shadow-[0_8px_18px_rgba(0,0,0,0.65)] ${styles.textClassName}`}
+            >
+              {signedAmountLabel}
+            </p>
+          ) : null}
+        </div>
       </div>
-    </div>
+    </ViewportPortal>
   );
 }

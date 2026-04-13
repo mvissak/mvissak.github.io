@@ -732,7 +732,7 @@ describe("TrainerApp", () => {
     const overlay = screen.getByTestId("round-result-reaction");
     expect(overlay).toBeInTheDocument();
     expect(within(overlay).getByText("Blackjack")).toBeInTheDocument();
-    expect(within(overlay).getByText("$37.50")).toBeInTheDocument();
+    expect(within(overlay).getByText("+$37.50")).toBeInTheDocument();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(100);

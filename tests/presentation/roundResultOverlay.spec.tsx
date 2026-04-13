@@ -6,6 +6,7 @@ describe("RoundResultOverlay", () => {
   test("renders the dealer-blackjack reaction with an svg icon", () => {
     render(<RoundResultOverlay amountLabel="$25" reaction="dealerBlackjack" />);
 
+    expect(screen.getByTestId("round-result-reaction").parentElement).toBe(document.body);
     expect(screen.getByTestId("dealer-blackjack-icon").tagName).toBe("svg");
     expect(screen.getByText("-$25")).toBeInTheDocument();
   });
@@ -25,5 +26,12 @@ describe("RoundResultOverlay", () => {
     expect(screen.queryByText(/\$/)).not.toBeInTheDocument();
     expect(screen.queryByTestId("victory-confetti")).not.toBeInTheDocument();
     expect(screen.queryByTestId("dealer-blackjack-icon")).not.toBeInTheDocument();
+  });
+
+  test("renders blackjack payouts with a leading plus sign", () => {
+    render(<RoundResultOverlay amountLabel="$37.50" reaction="blackjack" />);
+
+    expect(screen.getByText("Blackjack")).toBeInTheDocument();
+    expect(screen.getByText("+$37.50")).toBeInTheDocument();
   });
 });
