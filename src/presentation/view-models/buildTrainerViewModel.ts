@@ -81,7 +81,22 @@ const formatAccuracy = (correct: number, total: number): string => {
   return `${Math.round((correct / total) * 100)}%`;
 };
 
-const formatRoundResultAmount = (value: number): string => formatMoney(Math.abs(value));
+const formatRoundResultAmount = (value: number): string | null => {
+  const absoluteValue = Math.abs(value);
+
+  if (absoluteValue === 0) {
+    return null;
+  }
+
+  const hasFractionalCents = Math.round(absoluteValue * 100) % 100 !== 0;
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: hasFractionalCents ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(absoluteValue);
+};
 
 export const buildTrainerViewModel = (
   state: TrainerState | null,

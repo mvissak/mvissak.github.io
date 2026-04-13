@@ -104,6 +104,17 @@ describe("basic strategy engine", () => {
     expect(softTwenty.action).toBe("stand");
   });
 
+  test("treats mixed ten-value opening hands as hard totals, not splittable pairs", () => {
+    const decision = getBasicStrategyDecision(
+      [createCard("10"), createCard("Q", "hearts")],
+      createCard("7", "clubs"),
+      { hit: true, stand: true, double: true, split: false },
+    );
+
+    expect(decision.handKind).toBe("hard");
+    expect(decision.action).toBe("stand");
+  });
+
   test("includes the broader row rule in the explanation text", () => {
     const decision = getBasicStrategyDecision(
       [createCard("A"), createCard("7", "hearts")],
@@ -124,6 +135,9 @@ describe("basic strategy engine", () => {
 
     expect(reference.assumptions).toContain(
       "Composition-dependent deviations are not used. A multi-card hard or soft total is played the same way as the same total built from two cards unless the chart itself changes because doubling or splitting is no longer allowed.",
+    );
+    expect(reference.assumptions).toContain(
+      "Splits are only offered on identical ranks. Mixed ten-value hands such as Q,10 are treated as hard totals, not as pairs.",
     );
     expect(hardTotals?.rows.find((row) => row.label === "Hard 16")?.summary).toBe(
       "stand against dealer upcards 2, 3, 4, 5, or 6; hit against dealer upcards 7, 8, 9, 10, or A.",

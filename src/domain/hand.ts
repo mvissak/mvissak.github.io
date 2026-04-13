@@ -47,10 +47,20 @@ export const getPairRank = (cards: Card[]): PairRank | null => {
   }
 
   const [firstCard, secondCard] = cards;
-  const firstRank = firstCard.rank === "A" ? "A" : String(getCardNumericValue(firstCard.rank));
-  const secondRank = secondCard.rank === "A" ? "A" : String(getCardNumericValue(secondCard.rank));
 
-  return firstRank === secondRank ? (firstRank as PairRank) : null;
+  if (firstCard.rank !== secondCard.rank) {
+    return null;
+  }
+
+  if (firstCard.rank === "A") {
+    return "A";
+  }
+
+  if (tenValueRanks.includes(firstCard.rank)) {
+    return "10";
+  }
+
+  return firstCard.rank as PairRank;
 };
 
 export const isPair = (cards: Card[]): boolean => getPairRank(cards) !== null;

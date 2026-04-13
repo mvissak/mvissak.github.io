@@ -28,5 +28,7 @@ describe("hand evaluation", () => {
   test("detects pairs from two-card hands", () => {
     expect(isPair([createCard("8"), createCard("8", "hearts")])).toBe(true);
     expect(isPair([createCard("8"), createCard("9", "hearts")])).toBe(false);
+    expect(isPair([createCard("Q"), createCard("Q", "hearts")])).toBe(true);
+    expect(isPair([createCard("10"), createCard("Q", "hearts")])).toBe(false);
   });
 });

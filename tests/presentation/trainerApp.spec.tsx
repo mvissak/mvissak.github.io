@@ -149,7 +149,7 @@ describe("TrainerApp", () => {
     const overlay = await screen.findByTestId("round-result-reaction");
 
     expect(within(overlay).getByText("Victory")).toBeInTheDocument();
-    expect(within(overlay).getByText("$25.00")).toBeInTheDocument();
+    expect(within(overlay).getByText("$25")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Next Hand/i })).not.toBeInTheDocument();
 
     await waitFor(() => {
@@ -461,7 +461,6 @@ describe("TrainerApp", () => {
 
     await user.click(await screen.findByRole("button", { name: "Stand" }));
 
-    expect(screen.getByTestId("round-result-reaction")).toBeInTheDocument();
     expect(screen.queryByText(/20 beats dealer 17/i)).not.toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /Next Hand \(1s\)/i })).toBeEnabled();
@@ -634,7 +633,7 @@ describe("TrainerApp", () => {
 
     expect(overlay).toBeInTheDocument();
     expect(within(overlay).getByText("Dealer Blackjack")).toBeInTheDocument();
-    expect(within(overlay).getByText("$25.00")).toBeInTheDocument();
+    expect(within(overlay).getByText("$25")).toBeInTheDocument();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(100);
@@ -668,13 +667,49 @@ describe("TrainerApp", () => {
 
     expect(overlay).toBeInTheDocument();
     expect(within(overlay).getByText("Loss")).toBeInTheDocument();
-    expect(within(overlay).getByText("$25.00")).toBeInTheDocument();
+    expect(within(overlay).getByText("$25")).toBeInTheDocument();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(100);
     });
 
     expect(screen.queryByTestId("round-result-reaction")).not.toBeInTheDocument();
+  });
+
+  test("shows a temporary push overlay before exposing the next hand controls", async () => {
+    vi.useFakeTimers();
+    const trainer = createTrainerWithCards([
+      createCard("10"),
+      createCard("9", "clubs"),
+      createCard("7", "hearts"),
+      createCard("8", "diamonds"),
+    ]);
+
+    render(
+      React.createElement(TrainerApp, {
+        trainer,
+        autoAdvanceDelayMs: 10_000,
+        winCelebrationDurationMs: 60,
+      }),
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Stand" }));
+    });
+
+    const overlay = screen.getByTestId("round-result-reaction");
+
+    expect(overlay).toBeInTheDocument();
+    expect(within(overlay).getByText("Push")).toBeInTheDocument();
+    expect(within(overlay).queryByText(/\$/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Next Hand/i })).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    expect(screen.queryByTestId("round-result-reaction")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Next Hand/i })).toBeInTheDocument();
   });
 
   test("shows a full-screen blackjack overlay for a player natural blackjack win", async () => {

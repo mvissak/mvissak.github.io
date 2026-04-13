@@ -274,7 +274,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
           ? "victory"
           : totalNet < 0
             ? "loss"
-            : null;
+            : "push";
 
     if (!reaction) {
       clearRoundReaction();

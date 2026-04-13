@@ -23,28 +23,34 @@ const overlayStyles: Record<
 > = {
   dealerBlackjack: {
     backdropClassName:
-      "bg-[radial-gradient(circle_at_center,rgba(17,24,18,0.08)_0%,rgba(17,24,18,0.48)_58%,rgba(17,24,18,0.72)_100%)]",
+      "bg-[radial-gradient(circle_at_center,rgba(19,27,21,0.18)_0%,rgba(15,21,17,0.7)_48%,rgba(6,10,8,0.9)_100%)]",
     label: "Dealer Blackjack",
     showPoopIcon: true,
     textClassName: "text-ivory/80",
   },
   loss: {
     backdropClassName:
-      "bg-[radial-gradient(circle_at_center,rgba(241,164,164,0.2)_0%,rgba(73,19,19,0.34)_46%,rgba(32,10,10,0.72)_100%)]",
+      "bg-[radial-gradient(circle_at_center,rgba(186,78,78,0.24)_0%,rgba(67,18,18,0.64)_44%,rgba(18,7,7,0.9)_100%)]",
     label: "Loss",
     textClassName: "text-danger",
   },
   victory: {
     backdropClassName:
-      "bg-[radial-gradient(circle_at_center,rgba(178,225,118,0.22)_0%,rgba(16,61,36,0.42)_48%,rgba(7,26,16,0.78)_100%)]",
+      "bg-[radial-gradient(circle_at_center,rgba(130,191,96,0.24)_0%,rgba(13,56,31,0.66)_46%,rgba(5,18,11,0.9)_100%)]",
     label: "Victory",
     textClassName: "text-success",
   },
   blackjack: {
     backdropClassName:
-      "bg-[linear-gradient(135deg,rgba(241,199,102,0.28),rgba(43,36,17,0.84))]",
+      "bg-[linear-gradient(135deg,rgba(241,199,102,0.34),rgba(56,44,16,0.78),rgba(15,11,5,0.92))]",
     label: "Blackjack",
     textClassName: "text-gold",
+  },
+  push: {
+    backdropClassName:
+      "bg-[radial-gradient(circle_at_center,rgba(233,225,206,0.16)_0%,rgba(37,49,42,0.68)_44%,rgba(10,15,12,0.9)_100%)]",
+    label: "Push",
+    textClassName: "text-ivory",
   },
 };
 
@@ -56,6 +62,10 @@ export function RoundResultOverlay({ amountLabel, reaction }: RoundResultOverlay
 
     if (reaction === "loss" || reaction === "dealerBlackjack") {
       playDisappointedSound();
+      return;
+    }
+
+    if (reaction === "push") {
       return;
     }
 
@@ -84,13 +94,13 @@ export function RoundResultOverlay({ amountLabel, reaction }: RoundResultOverlay
           />
         ) : null}
         <p
-          className={`font-display text-[clamp(2.75rem,12vw,6.5rem)] uppercase tracking-[0.22em] ${styles.textClassName}`}
+          className={`font-body text-[clamp(2.75rem,11vw,5.75rem)] font-black uppercase tracking-[0.16em] drop-shadow-[0_10px_24px_rgba(0,0,0,0.7)] ${styles.textClassName}`}
         >
           {styles.label}
         </p>
         {amountLabel ? (
           <p
-            className={`font-display text-[clamp(2rem,7vw,3.25rem)] font-semibold tracking-[0.08em] ${styles.textClassName}`}
+            className={`font-body text-[clamp(2.1rem,7vw,3.35rem)] font-extrabold tracking-[0.04em] drop-shadow-[0_8px_18px_rgba(0,0,0,0.65)] ${styles.textClassName}`}
           >
             {amountLabel}
           </p>

@@ -20,6 +20,23 @@ describe("allowed actions", () => {
     });
   });
 
+  test("does not allow split on mixed ten-value cards", () => {
+    const hand = {
+      cards: [createCard("10"), createCard("Q", "hearts")],
+      bet: 25,
+      hasDoubled: false,
+      originatedFromSplit: false,
+      status: "playing" as const,
+    };
+
+    expect(getAllowedActions(hand, 1)).toEqual({
+      hit: true,
+      stand: true,
+      double: true,
+      split: false,
+    });
+  });
+
   test("removes double and split after the hand already drew a card", () => {
     const cards = [createCard("5"), createCard("4", "hearts"), createCard("2", "clubs")];
     const hand = {

@@ -240,6 +240,7 @@ export const getBasicStrategyReference = (): BasicStrategyReference => ({
     `This trainer grades decisions against a total-based ${blackjackRules.deckCount}-deck dealer-stands-on-soft-17 basic-strategy chart.`,
     "Composition-dependent deviations are not used. A multi-card hard or soft total is played the same way as the same total built from two cards unless the chart itself changes because doubling or splitting is no longer allowed.",
     "Dealer 10 means any ten-value upcard: 10, J, Q, or K.",
+    "Splits are only offered on identical ranks. Mixed ten-value hands such as Q,10 are treated as hard totals, not as pairs.",
     "Rows marked double if allowed fall back to hit or stand exactly as written when doubling is unavailable.",
     "5,5 is treated as a hard 10, not as a split pair, and 10,10 always stands.",
     "Insurance is always declined. It is treated as a negative-expectation side bet, not part of the main hand strategy.",
