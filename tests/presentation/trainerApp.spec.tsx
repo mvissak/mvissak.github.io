@@ -148,12 +148,12 @@ describe("TrainerApp", () => {
 
     const overlay = await screen.findByTestId("round-result-reaction");
 
-    expect(within(overlay).getByText("Victory")).toBeInTheDocument();
-    expect(within(overlay).getByText("$25")).toBeInTheDocument();
+    expect(within(overlay).getByText("YOU WIN")).toBeInTheDocument();
+    expect(within(overlay).getByText("+$25")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Next Hand/i })).not.toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Next Hand \(5s\)/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Next Hand \(3s\)/i })).toBeInTheDocument();
     });
     expect(screen.getByRole("button", { name: "Cash Out" })).toBeInTheDocument();
     expect(screen.getByText("Hand complete")).toBeInTheDocument();
@@ -233,7 +233,7 @@ describe("TrainerApp", () => {
       expect(screen.queryByText("Start a new session?")).not.toBeInTheDocument();
     });
 
-    expect(screen.queryByText("Victory")).not.toBeInTheDocument();
+    expect(screen.queryByText("YOU WIN")).not.toBeInTheDocument();
     expect(screen.getByText("Choose an action")).toBeInTheDocument();
   });
 
@@ -491,7 +491,7 @@ describe("TrainerApp", () => {
 
     await user.click(await screen.findByRole("button", { name: "Stand" }));
 
-    expect(screen.getByText("Victory")).toBeInTheDocument();
+    expect(screen.getByText("YOU WIN")).toBeInTheDocument();
     expect(screen.getByTestId("victory-confetti")).toBeInTheDocument();
     expect(screen.queryByText("Win")).not.toBeInTheDocument();
     expect(screen.queryByText(/20 beats dealer 17/i)).not.toBeInTheDocument();
@@ -539,7 +539,7 @@ describe("TrainerApp", () => {
     });
 
     expect(screen.getByTestId("round-result-reaction")).toBeInTheDocument();
-    expect(screen.getByText("Victory")).toBeInTheDocument();
+    expect(screen.getByText("YOU WIN")).toBeInTheDocument();
   });
 
   test("lets the player advance to the next hand before the countdown ends", async () => {
@@ -595,7 +595,7 @@ describe("TrainerApp", () => {
     });
 
     expect(screen.getByTestId("round-result-reaction")).toBeInTheDocument();
-    expect(screen.getByText("Victory")).toBeInTheDocument();
+    expect(screen.getByText("YOU WIN")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Next Hand/i })).not.toBeInTheDocument();
 
     await act(async () => {
@@ -633,7 +633,7 @@ describe("TrainerApp", () => {
 
     expect(overlay).toBeInTheDocument();
     expect(within(overlay).getByText("Dealer Blackjack")).toBeInTheDocument();
-    expect(within(overlay).getByText("$25")).toBeInTheDocument();
+    expect(within(overlay).getByText("-$25")).toBeInTheDocument();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(100);
@@ -667,7 +667,7 @@ describe("TrainerApp", () => {
 
     expect(overlay).toBeInTheDocument();
     expect(within(overlay).getByText("Loss")).toBeInTheDocument();
-    expect(within(overlay).getByText("$25")).toBeInTheDocument();
+    expect(within(overlay).getByText("-$25")).toBeInTheDocument();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(100);

@@ -7,14 +7,14 @@ describe("RoundResultOverlay", () => {
     render(<RoundResultOverlay amountLabel="$25" reaction="dealerBlackjack" />);
 
     expect(screen.getByTestId("dealer-blackjack-icon").tagName).toBe("svg");
-    expect(screen.getByText("$25")).toBeInTheDocument();
+    expect(screen.getByText("-$25")).toBeInTheDocument();
   });
 
   test("renders confetti for victory overlays", () => {
     render(<RoundResultOverlay amountLabel="$25" reaction="victory" />);
 
-    expect(screen.getByText("Victory")).toBeInTheDocument();
-    expect(screen.getByText("$25")).toBeInTheDocument();
+    expect(screen.getByText("YOU WIN")).toBeInTheDocument();
+    expect(screen.getByText("+$25")).toBeInTheDocument();
     expect(screen.getByTestId("victory-confetti").childElementCount).toBe(26);
   });
 

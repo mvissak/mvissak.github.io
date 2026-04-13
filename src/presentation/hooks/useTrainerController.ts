@@ -79,7 +79,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
   const [isResetSessionConfirmationOpen, setIsResetSessionConfirmationOpen] = useState(false);
   const [roundReaction, setRoundReaction] = useState<RoundReactionType | null>(null);
   const [sessionKey, setSessionKey] = useState(0);
-  const autoAdvanceDelayMs = options.autoAdvanceDelayMs ?? 5_000;
+  const autoAdvanceDelayMs = options.autoAdvanceDelayMs ?? 3_000;
   const dealerRevealDelayMs =
     options.dealerRevealDelayMs ?? parseDurationToMs(themeTokens.motion.flip);
   const dealerDrawIntervalMs =

@@ -37,7 +37,7 @@ const overlayStyles: Record<
   victory: {
     backdropClassName:
       "bg-[radial-gradient(circle_at_center,rgba(130,191,96,0.24)_0%,rgba(13,56,31,0.66)_46%,rgba(5,18,11,0.9)_100%)]",
-    label: "Victory",
+    label: "YOU WIN",
     textClassName: "text-success",
   },
   blackjack: {
@@ -77,6 +77,12 @@ export function RoundResultOverlay({ amountLabel, reaction }: RoundResultOverlay
   }
 
   const styles = overlayStyles[reaction];
+  const signedAmountLabel =
+    amountLabel && reaction === "victory"
+      ? `+${amountLabel}`
+      : amountLabel && (reaction === "loss" || reaction === "dealerBlackjack")
+        ? `-${amountLabel}`
+        : amountLabel;
 
   return (
     <div
@@ -98,11 +104,11 @@ export function RoundResultOverlay({ amountLabel, reaction }: RoundResultOverlay
         >
           {styles.label}
         </p>
-        {amountLabel ? (
+        {signedAmountLabel ? (
           <p
             className={`font-body text-[clamp(2.1rem,7vw,3.35rem)] font-extrabold tracking-[0.04em] drop-shadow-[0_8px_18px_rgba(0,0,0,0.65)] ${styles.textClassName}`}
           >
-            {amountLabel}
+            {signedAmountLabel}
           </p>
         ) : null}
       </div>
