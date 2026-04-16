@@ -49,6 +49,7 @@ export interface RoundState {
 export interface DecisionTracker {
   signature: string;
   hadMistake: boolean;
+  mistakeKeys: string[];
 }
 
 export interface TrainerState {
