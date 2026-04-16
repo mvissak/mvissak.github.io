@@ -28,7 +28,6 @@ interface UseTrainerControllerOptions {
   trainer?: BlackjackTrainer;
   store?: TrainerStateStore;
   autoAdvanceDelayMs?: number;
-  blackjackReactionDelayMs?: number;
   dealerRevealDelayMs?: number;
   dealerDrawIntervalMs?: number;
   drinkOfferInitialDelayMs?: number;
@@ -69,22 +68,18 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
   const dealerRevealTimerRef = useRef<number | null>(null);
   const dealerDrawTimerRef = useRef<number | null>(null);
   const dealerSequencePendingRef = useRef(false);
-  const roundReactionDelayTimerRef = useRef<number | null>(null);
   const roundReactionTimerRef = useRef<number | null>(null);
   const reactedRoundSignatureRef = useRef<string | null>(null);
   const [state, setState] = useState<TrainerState | null>(null);
   const [cashOutMessage, setCashOutMessage] = useState<TrainerViewCashOut | null>(null);
   const [countdownMsRemaining, setCountdownMsRemaining] = useState(0);
   const [dealerVisibleCardCount, setDealerVisibleCardCount] = useState<number | null>(null);
-  const [revealDealerHoleCard, setRevealDealerHoleCard] = useState(false);
   const [dealerRevealComplete, setDealerRevealComplete] = useState(true);
-  const [isRoundReactionPending, setIsRoundReactionPending] = useState(false);
   const [isCashOutOpen, setIsCashOutOpen] = useState(false);
   const [isResetSessionConfirmationOpen, setIsResetSessionConfirmationOpen] = useState(false);
   const [roundReaction, setRoundReaction] = useState<RoundReactionType | null>(null);
   const [sessionKey, setSessionKey] = useState(0);
   const autoAdvanceDelayMs = options.autoAdvanceDelayMs ?? 3_000;
-  const blackjackReactionDelayMs = options.blackjackReactionDelayMs ?? 1_000;
   const dealerRevealDelayMs =
     options.dealerRevealDelayMs ?? parseDurationToMs(themeTokens.motion.flip);
   const dealerDrawIntervalMs =
@@ -99,7 +94,6 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
       isCashOutOpen ||
       isResetSessionConfirmationOpen ||
       roundReaction !== null ||
-      isRoundReactionPending ||
       !dealerRevealComplete,
     maximumIntervalMs: options.drinkOfferMaximumIntervalMs,
     minimumIntervalMs: options.drinkOfferMinimumIntervalMs,
@@ -111,8 +105,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     drinkInterruptions.isInterrupting ||
     isCashOutOpen ||
     isResetSessionConfirmationOpen ||
-    roundReaction !== null ||
-    isRoundReactionPending;
+    roundReaction !== null;
 
   const clearAutoAdvanceCountdown = () => {
     if (autoAdvanceTimerRef.current !== null) {
@@ -142,22 +135,15 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
 
     dealerSequencePendingRef.current = false;
     setDealerVisibleCardCount(null);
-    setRevealDealerHoleCard(false);
     setDealerRevealComplete(true);
   };
 
   const clearRoundReaction = () => {
-    if (roundReactionDelayTimerRef.current !== null) {
-      window.clearTimeout(roundReactionDelayTimerRef.current);
-      roundReactionDelayTimerRef.current = null;
-    }
-
     if (roundReactionTimerRef.current !== null) {
       window.clearTimeout(roundReactionTimerRef.current);
       roundReactionTimerRef.current = null;
     }
 
-    setIsRoundReactionPending(false);
     setRoundReaction(null);
   };
 
@@ -207,11 +193,8 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
 
     const previousState = previousStateRef.current;
     const justResolved = previousState?.phase !== "roundResolved";
-    const shouldFlipDealerHoleCard = state.round.dealerHoleHidden;
-    const shouldAnimateDealerResolution =
-      justResolved && (shouldFlipDealerHoleCard || state.round.dealerCards.length > 2);
 
-    if (!shouldAnimateDealerResolution) {
+    if (!justResolved || state.round.dealerCards.length <= 2) {
       clearDealerRevealSequence();
       return;
     }
@@ -219,7 +202,6 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     clearDealerRevealSequence();
     dealerSequencePendingRef.current = true;
     setDealerVisibleCardCount(2);
-    setRevealDealerHoleCard(false);
     setDealerRevealComplete(false);
 
     let nextVisibleCardCount = 2;
@@ -240,26 +222,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
       dealerDrawTimerRef.current = window.setTimeout(revealNextDealerCard, dealerDrawIntervalMs);
     };
 
-    dealerRevealTimerRef.current = window.setTimeout(() => {
-      if (shouldFlipDealerHoleCard) {
-        setRevealDealerHoleCard(true);
-
-        if (totalDealerCards <= 2) {
-          dealerSequencePendingRef.current = false;
-          setDealerVisibleCardCount(null);
-          setDealerRevealComplete(true);
-          dealerRevealTimerRef.current = null;
-          return;
-        }
-
-        dealerDrawTimerRef.current = window.setTimeout(revealNextDealerCard, dealerDrawIntervalMs);
-        dealerRevealTimerRef.current = null;
-        return;
-      }
-
-      revealNextDealerCard();
-      dealerRevealTimerRef.current = null;
-    }, dealerRevealDelayMs);
+    dealerRevealTimerRef.current = window.setTimeout(revealNextDealerCard, dealerRevealDelayMs);
 
     return () => {
       clearDealerRevealSequence();
@@ -319,29 +282,12 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     }
 
     clearRoundReaction();
-
-    const reactionDelayMs = reaction === "blackjack" ? blackjackReactionDelayMs : 0;
-
-    const startReaction = () => {
-      setIsRoundReactionPending(false);
-      setRoundReaction(reaction);
-      roundReactionTimerRef.current = window.setTimeout(() => {
-        setRoundReaction(null);
-        roundReactionTimerRef.current = null;
-      }, winCelebrationDurationMs);
-    };
-
-    if (reactionDelayMs > 0) {
-      setIsRoundReactionPending(true);
-      roundReactionDelayTimerRef.current = window.setTimeout(() => {
-        roundReactionDelayTimerRef.current = null;
-        startReaction();
-      }, reactionDelayMs);
-      return;
-    }
-
-    startReaction();
-  }, [blackjackReactionDelayMs, dealerRevealComplete, state, winCelebrationDurationMs]);
+    setRoundReaction(reaction);
+    roundReactionTimerRef.current = window.setTimeout(() => {
+      setRoundReaction(null);
+      roundReactionTimerRef.current = null;
+    }, winCelebrationDurationMs);
+  }, [dealerRevealComplete, state, winCelebrationDurationMs]);
 
   useEffect(() => {
     if (
@@ -439,11 +385,10 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
         if (
           nextState.phase === "roundResolved" &&
           nextState.round &&
-          (nextState.round.dealerCards.length > 2 || nextState.round.dealerHoleHidden)
+          nextState.round.dealerCards.length > 2
         ) {
           dealerSequencePendingRef.current = true;
           setDealerVisibleCardCount(2);
-          setRevealDealerHoleCard(false);
           setDealerRevealComplete(false);
         }
 
@@ -501,13 +446,11 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     isCashOutOpen,
     isDrinkOfferOpen: drinkInterruptions.isOfferOpen,
     isResetSessionConfirmationOpen,
-    isRoundReactionPending,
     openCashOut,
     orderDrink: drinkInterruptions.chooseDrink,
     requestResetSession,
     roundReaction,
-    resultReactionActive: roundReaction !== null || isRoundReactionPending,
-    revealDealerHoleCard,
+    resultReactionActive: roundReaction !== null,
     suppressResolvedOutcome:
       state?.phase === "roundResolved" &&
       (!dealerRevealComplete || dealerSequencePendingRef.current),

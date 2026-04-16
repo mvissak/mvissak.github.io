@@ -22,7 +22,6 @@ import { buildTrainerViewModel } from "@/presentation/view-models/buildTrainerVi
 interface TrainerAppProps {
   trainer?: BlackjackTrainer;
   autoAdvanceDelayMs?: number;
-  blackjackReactionDelayMs?: number;
   dealerRevealDelayMs?: number;
   dealerDrawIntervalMs?: number;
   drinkOfferInitialDelayMs?: number;
@@ -36,7 +35,6 @@ interface TrainerAppProps {
 export function TrainerApp({
   trainer,
   autoAdvanceDelayMs,
-  blackjackReactionDelayMs,
   dealerRevealDelayMs,
   dealerDrawIntervalMs,
   drinkOfferInitialDelayMs,
@@ -49,7 +47,6 @@ export function TrainerApp({
   const controller = useTrainerController({
     trainer,
     autoAdvanceDelayMs,
-    blackjackReactionDelayMs,
     dealerRevealDelayMs,
     dealerDrawIntervalMs,
     drinkOfferInitialDelayMs,
@@ -61,7 +58,6 @@ export function TrainerApp({
   });
   const viewModel = buildTrainerViewModel(controller.state, {
     dealerVisibleCardCount: controller.dealerVisibleCardCount,
-    revealDealerHoleCard: controller.revealDealerHoleCard,
     suppressResolvedOutcome: controller.suppressResolvedOutcome,
   });
   const strategyReference = buildStrategyReferenceViewModel();

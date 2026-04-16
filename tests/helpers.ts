@@ -31,17 +31,9 @@ export const createTrainerWithCards = (
   cards: Card[],
   cutCardIndex = cards.length - 1,
   defaultWagerAmount?: number,
-  cardsAreInShoeOrder = false,
 ): BlackjackTrainer =>
   new BlackjackTrainer({
     defaultWagerAmount,
     randomSource: new FixedRandomSource([0.5]),
-    shoeFactory: (randomSource) =>
-      Shoe.fromOrderedCards(
-        cardsAreInShoeOrder || cards.length < 4
-          ? cards
-          : [cards[0], cards[3], cards[2], cards[1], ...cards.slice(4)],
-        randomSource,
-        cutCardIndex,
-      ),
+    shoeFactory: (randomSource) => Shoe.fromOrderedCards(cards, randomSource, cutCardIndex),
   });

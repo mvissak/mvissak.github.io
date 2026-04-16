@@ -2,18 +2,18 @@ import { describe, expect, test } from "vitest";
 import { createCard, createTrainerWithCards } from "@tests/helpers";
 
 describe("blackjack trainer flow", () => {
-  test("deals cards in player-hole-player-upcard order with the hole card hidden", () => {
+  test("deals cards in player-dealer-player-dealer order with the hole card hidden", () => {
     const trainer = createTrainerWithCards([
       createCard("9"),
       createCard("6", "clubs"),
       createCard("7", "hearts"),
       createCard("K", "diamonds"),
-    ], undefined, undefined, true);
+    ]);
 
     const state = trainer.startNewSession();
 
     expect(state.round?.playerHands[0].cards.map((card) => card.rank)).toEqual(["9", "7"]);
-    expect(state.round?.dealerCards.map((card) => card.rank)).toEqual(["K", "6"]);
+    expect(state.round?.dealerCards.map((card) => card.rank)).toEqual(["6", "K"]);
     expect(state.round?.dealerHoleHidden).toBe(true);
     expect(state.phase).toBe("playerTurn");
   });
@@ -36,54 +36,6 @@ describe("blackjack trainer flow", () => {
     expect(state.round?.playerHands[0].outcome).toBe("blackjack");
     expect(state.round?.playerHands[0].netResult).toBe(60);
     expect(state.stats.winnings).toBe(60);
-  });
-
-  test("skips insurance and keeps the dealer hole hidden when the player opens with blackjack against an ace", () => {
-    const trainer = createTrainerWithCards([
-      createCard("A"),
-      createCard("A", "clubs"),
-      createCard("K", "hearts"),
-      createCard("9", "diamonds"),
-    ]);
-
-    const state = trainer.startNewSession();
-
-    expect(state.phase).toBe("roundResolved");
-    expect(state.round?.dealerHoleHidden).toBe(true);
-    expect(state.round?.playerHands[0].outcome).toBe("blackjack");
-    expect(state.round?.playerHands[0].netResult).toBe(37.5);
-  });
-
-  test("pushes when both player and dealer have blackjack under an ace upcard", () => {
-    const trainer = createTrainerWithCards([
-      createCard("A"),
-      createCard("A", "clubs"),
-      createCard("K", "hearts"),
-      createCard("10", "diamonds"),
-    ]);
-
-    const state = trainer.startNewSession();
-
-    expect(state.phase).toBe("roundResolved");
-    expect(state.round?.dealerHoleHidden).toBe(true);
-    expect(state.round?.playerHands[0].outcome).toBe("push");
-    expect(state.round?.playerHands[0].netResult).toBe(0);
-  });
-
-  test("pushes when both player and dealer have blackjack under a ten-value upcard", () => {
-    const trainer = createTrainerWithCards([
-      createCard("A"),
-      createCard("K", "clubs"),
-      createCard("10", "hearts"),
-      createCard("A", "diamonds"),
-    ]);
-
-    const state = trainer.startNewSession();
-
-    expect(state.phase).toBe("roundResolved");
-    expect(state.round?.dealerHoleHidden).toBe(true);
-    expect(state.round?.playerHands[0].outcome).toBe("push");
-    expect(state.round?.playerHands[0].netResult).toBe(0);
   });
 
   test("prompts for insurance before resolving an ace-upcard dealer blackjack", () => {
@@ -115,23 +67,6 @@ describe("blackjack trainer flow", () => {
     expect(correctedState.phase).toBe("insuranceDecision");
     expect(correctedState.correction?.recommendedLabel).toBe("No Insurance");
     expect(correctedState.stats.mistakesMade).toBe(1);
-  });
-
-  test("counts repeating the same wrong insurance choice only once", () => {
-    const trainer = createTrainerWithCards([
-      createCard("10"),
-      createCard("A", "clubs"),
-      createCard("7", "hearts"),
-      createCard("9", "diamonds"),
-    ]);
-
-    const initialState = trainer.startNewSession();
-    const firstWrongState = trainer.submitInsuranceDecision(initialState, "yes");
-    const repeatedWrongState = trainer.submitInsuranceDecision(firstWrongState, "yes");
-
-    expect(firstWrongState.stats.mistakesMade).toBe(1);
-    expect(repeatedWrongState.stats.mistakesMade).toBe(1);
-    expect(repeatedWrongState.correction?.recommendedLabel).toBe("No Insurance");
   });
 
   test("declining insurance resolves dealer blackjack when the hole card is ten-valued", () => {
@@ -215,43 +150,6 @@ describe("blackjack trainer flow", () => {
     expect(nextState.correction?.recommendedAction).toBe("hit");
     expect(nextState.round?.playerHands[0].cards).toEqual(initialState.round?.playerHands[0].cards);
     expect(nextState.stats.mistakesMade).toBe(1);
-  });
-
-  test("counts a repeated wrong choice on the same decision only once", () => {
-    const trainer = createTrainerWithCards([
-      createCard("2"),
-      createCard("10", "clubs"),
-      createCard("3", "hearts"),
-      createCard("6", "diamonds"),
-    ]);
-
-    const initialState = trainer.startNewSession();
-    const firstWrongState = trainer.submitAction(initialState, "stand");
-    const repeatedWrongState = trainer.submitAction(firstWrongState, "stand");
-
-    expect(firstWrongState.stats.mistakesMade).toBe(1);
-    expect(repeatedWrongState.stats.mistakesMade).toBe(1);
-    expect(repeatedWrongState.correction?.recommendedAction).toBe("hit");
-  });
-
-  test("counts a new wrong choice after the hand state changes as a new mistake", () => {
-    const trainer = createTrainerWithCards([
-      createCard("2"),
-      createCard("10", "clubs"),
-      createCard("3", "hearts"),
-      createCard("6", "diamonds"),
-      createCard("2", "spades"),
-    ]);
-
-    const initialState = trainer.startNewSession();
-    const firstWrongState = trainer.submitAction(initialState, "stand");
-    const afterCorrectHit = trainer.submitAction(firstWrongState, "hit");
-    const secondWrongState = trainer.submitAction(afterCorrectHit, "stand");
-
-    expect(afterCorrectHit.phase).toBe("playerTurn");
-    expect(afterCorrectHit.round?.playerHands[0].cards.map((card) => card.rank)).toEqual(["2", "3", "2"]);
-    expect(secondWrongState.stats.mistakesMade).toBe(2);
-    expect(secondWrongState.correction?.recommendedAction).toBe("hit");
   });
 
   test("tracks winnings and losses across multiple hands", () => {

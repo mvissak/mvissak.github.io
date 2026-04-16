@@ -56,7 +56,6 @@ export interface TrainerViewModel {
 
 export interface TrainerViewModelOptions {
   dealerVisibleCardCount?: number | null;
-  revealDealerHoleCard?: boolean;
   suppressResolvedOutcome?: boolean;
 }
 
@@ -128,14 +127,12 @@ export const buildTrainerViewModel = (
     state.phase === "roundResolved" && options.dealerVisibleCardCount
       ? round.dealerCards.slice(0, options.dealerVisibleCardCount)
       : round.dealerCards;
-  const shouldHideDealerHoleCard =
-    round.dealerHoleHidden && options.revealDealerHoleCard !== true;
 
   const dealerVisibleCards = dealerCardsForDisplay.map((card, index) => ({
     ...card,
-    faceDown: shouldHideDealerHoleCard && index === 1,
+    faceDown: round.dealerHoleHidden && index === 1,
   }));
-  const dealerVisibleValue = shouldHideDealerHoleCard
+  const dealerVisibleValue = round.dealerHoleHidden
     ? `Upcard ${round.dealerCards[0].rank}`
     : `Total ${getHandValue(dealerCardsForDisplay).total}`;
   const roundResultAmountLabel =
@@ -161,7 +158,11 @@ export const buildTrainerViewModel = (
     dealerHand: {
       id: "dealer",
       title: "Dealer",
-      subtitle: undefined,
+      subtitle: round.dealerHoleHidden
+        ? undefined
+        : suppressResolvedOutcome
+          ? "Hole card is revealing before dealer draws continue."
+          : "Dealer hand resolved.",
       totalLabel: dealerVisibleValue,
       cards: dealerVisibleCards,
       isActive: false,

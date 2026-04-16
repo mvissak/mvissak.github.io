@@ -49,7 +49,6 @@ describe("buildTrainerViewModel", () => {
       [25],
       [25],
     ]);
-    expect(viewModel.dealerHand?.subtitle).toBeUndefined();
     expect(viewModel.playerHands[0].detail).toBeNull();
     expect(viewModel.roundResultAmountLabel).toBe("$50");
   });
@@ -104,59 +103,8 @@ describe("buildTrainerViewModel", () => {
 
     expect(viewModel.headerSummary).toBe("Dealer resolving...");
     expect(viewModel.dealerHand?.cards).toHaveLength(2);
-    expect(viewModel.dealerHand?.subtitle).toBeUndefined();
     expect(viewModel.playerHands[0].detail).toBeNull();
     expect(viewModel.roundResultAmountLabel).toBe("$25");
-  });
-
-  test("can reveal a dealer hole card for a resolved natural-blackjack peek without changing domain state", () => {
-    const state: TrainerState = {
-      phase: "roundResolved",
-      round: {
-        dealerCards: [createCard("A"), createCard("9", "clubs")],
-        dealerHoleHidden: true,
-        playerHands: [
-          {
-            id: "hand-1",
-            cards: [createCard("A", "hearts"), createCard("K", "diamonds")],
-            bet: 25,
-            hasDoubled: false,
-            originatedFromSplit: false,
-            status: "resolved",
-            outcome: "blackjack",
-            netResult: 37.5,
-            summary: "Blackjack pays 3:2.",
-          },
-        ],
-        activeHandIndex: 0,
-        resultSummary: "hand-1: Blackjack pays 3:2.",
-        cutCardReachedDuringRound: false,
-      },
-      correction: null,
-      stats: {
-        totalHandsPlayed: 1,
-        correctFirstTryDecisions: 1,
-        decisionPointsResolved: 1,
-        mistakesMade: 0,
-        winnings: 37.5,
-        currentStreak: 1,
-        bestStreak: 1,
-      },
-      bannerMessage: null,
-      wagerAmount: 25,
-      nextHandSequence: 2,
-      currentDecision: null,
-    };
-
-    const hiddenViewModel = buildTrainerViewModel(state);
-    const revealedViewModel = buildTrainerViewModel(state, {
-      revealDealerHoleCard: true,
-    });
-
-    expect(hiddenViewModel.dealerHand?.cards[1]?.faceDown).toBe(true);
-    expect(hiddenViewModel.dealerHand?.totalLabel).toBe("Upcard A");
-    expect(revealedViewModel.dealerHand?.cards[1]?.faceDown).toBe(false);
-    expect(revealedViewModel.dealerHand?.totalLabel).toBe("Total 20");
   });
 
   test("drops trailing .00 from three-digit whole-dollar round results", () => {
