@@ -6,6 +6,7 @@ import type { RandomSource } from "@/domain/types";
 import { CashOutModal } from "@/presentation/components/CashOutModal";
 import { CardCountingReferencePanel } from "@/presentation/components/CardCountingReferencePanel";
 import { DecisionNotice } from "@/presentation/components/DecisionNotice";
+import { ShoeNotice } from "@/presentation/components/ShoeNotice";
 import { NextHandWagerModal } from "@/presentation/components/NextHandWagerModal";
 import { buildNextWagerViewModel } from "@/presentation/view-models/buildNextWagerViewModel";
 import { ConfirmationModal } from "@/presentation/components/ConfirmationModal";
@@ -93,6 +94,8 @@ export function TrainerApp({
         onWagerAmountChange={controller.updateWagerAmount}
         wagerAmount={controller.wagerAmount}
       />
+
+      {!controller.nextWagerPromptOpen ? <ShoeNotice notice={viewModel.shoeNotice} /> : null}
 
       {viewModel.dealerHand ? <HandArea hand={viewModel.dealerHand} motionEnabled={motionEnabled} /> : null}
 

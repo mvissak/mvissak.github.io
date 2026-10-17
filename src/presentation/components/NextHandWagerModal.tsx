@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { NextWagerChoice } from "@/application/trainerState";
 import { ControlButton } from "@/presentation/components/ControlButton";
 import { ModalFrame } from "@/presentation/components/ModalFrame";
+import { ShoeNotice } from "@/presentation/components/ShoeNotice";
 import type { TrainerViewNextWager } from "@/presentation/view-models/buildNextWagerViewModel";
 
 interface NextHandWagerModalProps {
@@ -22,7 +23,9 @@ export function NextHandWagerModal({ isOpen, wager, onChoose }: NextHandWagerMod
     <ModalFrame titleId="next-wager-title">
       <p className="text-xs uppercase tracking-wide text-gold-muted">Next Hand</p>
       <h2 id="next-wager-title" className="mt-3 font-display text-3xl text-gold">Choose your next bet</h2>
-      <p className="mt-4 text-sm leading-6 text-ivory/85">{wager.countLabel}</p>
+      <div className="mt-4">
+        {wager.shoeNotice ? <ShoeNotice notice={wager.shoeNotice} /> : <p className="text-sm leading-6 text-ivory/85">{wager.countLabel}</p>}
+      </div>
       {wager.insuranceLabel ? <p className="mt-2 text-sm text-ivory/85">{wager.insuranceLabel}</p> : null}
       <label className="mt-5 block text-sm font-semibold text-gold" htmlFor="next-wager-amount">Custom bet amount</label>
       <input

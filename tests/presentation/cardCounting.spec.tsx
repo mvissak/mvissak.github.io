@@ -173,9 +173,12 @@ describe("displayed running count", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Stand" }));
     expectCount("0");
+    expect(screen.queryByRole("status", { name: "Shoe update" })).not.toBeInTheDocument();
     await act(async () => { await vi.advanceTimersByTimeAsync(30); });
     expectCount("+1");
+    expect(screen.queryByRole("status", { name: "Shoe update" })).not.toBeInTheDocument();
     await act(async () => { await vi.advanceTimersByTimeAsync(30); });
     expectCount("0");
+    expect(screen.getByRole("status", { name: "Shoe update" })).toHaveTextContent("Shoe reshuffled");
   });
 });

@@ -40,6 +40,7 @@ These rules are currently part of the product and must stay aligned across domai
 - Count-reference guidance must match supported indices and action eligibility; it must not imply that a positive count guarantees an advantage, particularly at 6:5
 - Every resolved round requires an Increase, Decrease, or Keep wager choice before countdown/manual advancement; custom amounts must be whole dollars within the table limits
 - Reshuffle only after the current hand completes once the cut card has been reached
+- Notify the player of reshuffles in the next-bet prompt and during the first hand from the new shoe, distinguishing the previous shoe's final count from the new hand's counted cards
 - Minimum wager: `$25`
 - Maximum wager: `$1000`
 

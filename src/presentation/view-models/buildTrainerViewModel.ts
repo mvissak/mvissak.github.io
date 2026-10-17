@@ -7,6 +7,7 @@ import { getDisplayedDealerCards, getFaceUpCardIds } from "@/presentation/view-m
 import type { CardVisibilityOptions } from "@/presentation/view-models/cardVisibility";
 import type { Card, PlayerAction } from "@/domain/types";
 import { buildBetChipStacks, type TrainerViewBetStack } from "@/presentation/view-models/betChips";
+import { buildShoeNoticeViewModel, type TrainerViewShoeNotice } from "@/presentation/view-models/buildShoeNoticeViewModel";
 
 export interface TrainerViewCard extends Card {
   faceDown?: boolean;
@@ -55,6 +56,7 @@ export interface TrainerViewModel {
   loading: boolean;
   headerSummary: string;
   bannerMessage: string | null;
+  shoeNotice: TrainerViewShoeNotice | null;
   dealerHand: TrainerViewHand | null;
   playerHands: TrainerViewHand[];
   actions: TrainerViewAction[];
@@ -126,6 +128,7 @@ export const buildTrainerViewModel = (
       loading: true,
       headerSummary: "Preparing the table.",
       bannerMessage: null,
+      shoeNotice: null,
       dealerHand: null,
       playerHands: [],
       actions: [],
@@ -175,6 +178,7 @@ export const buildTrainerViewModel = (
         ? round.resultSummary ?? "Hand complete."
         : "Choose the correct basic strategy move to continue.",
     bannerMessage: suppressResolvedOutcome ? null : state.bannerMessage,
+    shoeNotice: suppressResolvedOutcome ? null : buildShoeNoticeViewModel(state),
     dealerHand: {
       id: "dealer",
       title: "Dealer",

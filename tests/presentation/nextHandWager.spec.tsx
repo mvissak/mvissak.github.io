@@ -83,6 +83,26 @@ describe("next-hand wager prompt", () => {
     expect(screen.queryByRole("dialog", { name: "Choose your next bet" })).not.toBeInTheDocument();
     await advance(1);
     expect(screen.getByRole("dialog", { name: "Choose your next bet" })).toBeInTheDocument();
-    expect(screen.getByText(/New 6-deck shoe next hand · count resets to 0/)).toBeInTheDocument();
+    const notice = screen.getByRole("status", { name: "Shoe update" });
+    expect(notice).toHaveTextContent("Shoe reshuffled");
+    expect(notice).toHaveTextContent("A fresh 6-deck shoe is ready for the next hand");
+    expect(notice).toHaveTextContent("running count will restart at 0 before the next deal");
+  });
+
+  test("keeps the new-shoe notice on the table after dealing and reloading the first hand", async () => {
+    const trainer = createTrainerWithCards([
+      createCard("10"), createCard("9"), createCard("10"), createCard("10"),
+    ], 4, undefined, true);
+    const props = { trainer, autoAdvanceDelayMs: 10_000, winCelebrationDurationMs: 60 };
+    const mounted = render(<TrainerApp {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Stand" }));
+    await advance(60);
+    expect(within(screen.getByRole("dialog", { name: "Choose your next bet" })).getByRole("status", { name: "Shoe update" })).toHaveTextContent("Shoe reshuffled");
+    fireEvent.click(screen.getByRole("button", { name: "Keep $25.00" }));
+    fireEvent.click(screen.getByRole("button", { name: /Next Hand/i }));
+    expect(screen.getByRole("status", { name: "Shoe update" })).toHaveTextContent("New shoe in play");
+    mounted.unmount();
+    render(<TrainerApp {...props} />);
+    expect(screen.getByRole("status", { name: "Shoe update" })).toHaveTextContent("running count restarted at 0 before this hand's face-up cards were counted");
   });
 });

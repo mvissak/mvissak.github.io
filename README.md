@@ -78,6 +78,7 @@ The codebase follows onion architecture with framework-independent domain logic 
 - The count guide highlights the running-count direction and displays true count (running count divided by remaining decks). Basic-strategy moves remain accepted; the shared Hi-Lo index table also enables qualifying stands, doubles, splits, and negative-count hits. Validation uses the unrounded true count and excludes hidden cards. Insurance is accepted at true count +3 or higher, costs half the original wager, and pays 2:1 on dealer blackjack; declining is always accepted. Non-natural hand indices apply at either blackjack payout.
 - After each resolved round and its result animation, a bet prompt lets the player increase or decrease to a custom whole-dollar amount, or keep the base bet. The $25–$1000 limits are enforced by the application. Countdown and manual advancement wait for this choice, and pending choices survive reloads.
 - Shoe state persists across hands within a session and only reshuffles after the cut card has been reached and the current hand finishes.
+- Reshuffles show a prominent shoe notice in the next-bet prompt and on the table during the first hand from the new shoe. The notice explains that the count restarts before counting that hand's face-up cards.
 
 ## Future Extension Points
 
