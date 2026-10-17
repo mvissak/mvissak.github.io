@@ -9,10 +9,13 @@ describe("count-based insurance", () => {
     ], 4, undefined, true);
     const initial = { ...trainer.startNewSession(), runningCountBeforeRound: 21 };
     expect(getDecisionTrueCount(initial)).toBeCloseTo(18 / (308 / 52));
-    const insured = trainer.submitInsuranceDecision(initial, "yes");
+    const lesson = trainer.submitInsuranceDecision(initial, "yes");
+    expect(lesson.phase).toBe("insuranceDecision");
+    expect(lesson.round?.insuranceBet).toBe(0);
+    const insured = trainer.confirmCountFeedback(lesson, "original");
     expect(insured.correction).toBeNull();
     expect(insured.stats.mistakesMade).toBe(0);
-    expect(insured.decisionNotice).toContain("Insurance is allowed");
+    expect(insured.decisionNotice).toContain("Hi-Lo favors buying insurance");
     expect(insured.round?.insuranceBet).toBe(12.5);
     if (holeCard === "K") {
       expect(insured.phase).toBe("roundResolved");
@@ -30,7 +33,9 @@ describe("count-based insurance", () => {
   test("declining insurance remains accepted even when the count qualifies", () => {
     const trainer = createTrainerWithCards([createCard("10"), createCard("K"), createCard("10"), createCard("A")], 4, undefined, true);
     const state = { ...trainer.startNewSession(), runningCountBeforeRound: 21 };
-    const declined = trainer.submitInsuranceDecision(state, "no");
+    const lesson = trainer.submitInsuranceDecision(state, "no");
+    expect(lesson.countFeedback?.preferredAction).toBe("yes");
+    const declined = trainer.confirmCountFeedback(lesson, "original");
     expect(declined.correction).toBeNull();
     expect(declined.round?.insuranceBet).toBe(0);
     expect(declined.round?.insuranceNetResult).toBe(0);

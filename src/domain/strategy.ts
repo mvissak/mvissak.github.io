@@ -241,6 +241,7 @@ export interface CountAwareStrategyDecision {
   acceptedActions: PlayerAction[];
   countAction: PlayerAction | null;
   countExplanation: string | null;
+  countRationale: string | null;
 }
 
 export const getCountAwareStrategyDecision = (
@@ -255,6 +256,7 @@ export const getCountAwareStrategyDecision = (
     acceptedActions: [basicStrategy.action],
     countAction: null,
     countExplanation: null,
+    countRationale: null,
   };
   if (trueCount === null || !Number.isFinite(trueCount)) return baseline;
   const profile = getHandProfile(cards, allowedActions.split);
@@ -277,14 +279,36 @@ export const getCountAwareStrategyDecision = (
     basicStrategy,
     acceptedActions: [basicStrategy.action, countAction],
     countAction,
-    countExplanation: `Hi-Lo accepts ${countAction} on ${profile.label} vs ${upcard} when the true count is ${comparison} ${index.minimumTrueCount}. Basic strategy remains accepted.`,
+    countExplanation: `Hi-Lo favors ${countAction} on ${profile.label} vs ${upcard} when the true count is ${comparison} ${index.minimumTrueCount}.`,
+    countRationale: countAction === "hit"
+      ? "At this lower count, the shoe has relatively fewer ten-value cards that would bust this hard total. Taking another card is preferred."
+      : countAction === "stand"
+        ? "Standing avoids the risk of busting on another card. At this index, that is preferable to the chart's hit."
+        : countAction === "double"
+          ? "The richer supply of tens and aces improves the value of drawing one card with a doubled wager at this index."
+          : "Against this weak dealer upcard, the high count makes two separately wagered hands preferable to keeping the pair together at this index.",
   };
 };
 
-export const isCountInsuranceAllowed = (trueCount: number | null): boolean => {
+export interface CountInsuranceGuidance {
+  basicAction: "no";
+  countAction: "yes";
+  explanation: string;
+  rationale: string;
+}
+
+export const getCountInsuranceGuidance = (trueCount: number | null): CountInsuranceGuidance | null => {
   const index = hiLoIndices.find((candidate) => candidate.kind === "insurance");
-  return trueCount !== null && Number.isFinite(trueCount) && !!index && trueCount >= index.minimumTrueCount;
+  if (trueCount === null || !Number.isFinite(trueCount) || !index || trueCount < index.minimumTrueCount) return null;
+  return {
+    basicAction: "no",
+    countAction: "yes",
+    explanation: `Hi-Lo favors buying insurance at a true count of ${index.minimumTrueCount} or higher.`,
+    rationale: `Insurance pays ${blackjackRules.insurancePayout}:1 when the dealer's hole card is worth ten. At this index, the richer supply of ten-value cards makes the side bet preferable to declining it.`,
+  };
 };
+
+export const isCountInsuranceAllowed = (trueCount: number | null): boolean => getCountInsuranceGuidance(trueCount) !== null;
 
 export const getBasicStrategyReference = (): BasicStrategyReference => ({
   assumptions: [

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { getTrueCount } from "@/domain/cardCounting";
 import { deriveHandStatus, getAllowedActions } from "@/domain/round";
-import { getCountAwareStrategyDecision, isCountInsuranceAllowed } from "@/domain/strategy";
+import { getCountAwareStrategyDecision, getCountInsuranceGuidance, isCountInsuranceAllowed } from "@/domain/strategy";
 import type { Rank } from "@/domain/types";
 import { createCard } from "@tests/helpers";
 
@@ -50,5 +50,20 @@ describe("count-aware strategy", () => {
     expect(isCountInsuranceAllowed(2.999)).toBe(false);
     expect(isCountInsuranceAllowed(3)).toBe(true);
     expect(isCountInsuranceAllowed(5)).toBe(true);
+    expect(getCountInsuranceGuidance(2.999)).toBeNull();
+    expect(getCountInsuranceGuidance(3)?.explanation).toContain("3 or higher");
+    expect(getCountInsuranceGuidance(3)?.rationale).toContain("hole card is worth ten");
+  });
+
+  test("explains why the supported count play differs from the chart", () => {
+    const stand = decision(["10", "6"], "10", 1);
+    expect(stand.countExplanation).toContain("at or above 0");
+    expect(stand.countRationale).toContain("risk of busting");
+    const hit = decision(["10", "2"], "4", -1);
+    expect(hit.countExplanation).toContain("below 0");
+    expect(hit.countRationale).toContain("fewer ten-value cards");
+    expect(decision(["4", "5"], "2", 2).countRationale).toContain("doubled wager");
+    expect(decision(["10", "10"], "6", 5).countRationale).toContain("separately wagered hands");
+    expect(decision(["10", "6"], "10", -1).countRationale).toBeNull();
   });
 });

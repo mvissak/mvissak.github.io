@@ -1,5 +1,5 @@
 import { BlackjackTrainer } from "@/application/BlackjackTrainer";
-import type { NextWagerChoice, PersistedTrainerState, TrainerState } from "@/application/trainerState";
+import type { CountFeedbackChoice, NextWagerChoice, PersistedTrainerState, TrainerState } from "@/application/trainerState";
 import { confirmNextWager } from "@/application/wagerDecision";
 import type { BlackjackPayout, InsuranceDecision, PlayerAction } from "@/domain/types";
 
@@ -25,6 +25,9 @@ export const submitPlayerAction = (
 
 export const dismissCorrection = (trainer: BlackjackTrainer, state: TrainerState): TrainerState =>
   trainer.dismissCorrection(state);
+
+export const confirmCountFeedback = (trainer: BlackjackTrainer, state: TrainerState, choice: CountFeedbackChoice): TrainerState =>
+  trainer.confirmCountFeedback(state, choice);
 
 export const updateWagerAmount = (
   trainer: BlackjackTrainer,

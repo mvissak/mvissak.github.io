@@ -36,7 +36,9 @@ describe("session running count", () => {
     state = trainer.submitAction(state, "hit");
     state = trainer.submitAction(state, "hit");
     expect(getRunningCount(state, faceUpIds(state))).toBe(4);
-    const corrected = trainer.submitAction(state, "stand");
+    const lesson = trainer.submitAction(state, "stand");
+    expect(lesson.countFeedback?.chosenAction).toBe("stand");
+    const corrected = trainer.confirmCountFeedback(lesson, "original");
     expect(corrected.phase).toBe("roundResolved");
     expect(corrected.correction).toBeNull();
     expect(corrected.stats.mistakesMade).toBe(0);

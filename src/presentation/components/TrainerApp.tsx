@@ -6,6 +6,8 @@ import type { RandomSource } from "@/domain/types";
 import { CashOutModal } from "@/presentation/components/CashOutModal";
 import { CardCountingReferencePanel } from "@/presentation/components/CardCountingReferencePanel";
 import { DecisionNotice } from "@/presentation/components/DecisionNotice";
+import { CountFeedbackModal } from "@/presentation/components/CountFeedbackModal";
+import { buildCountFeedbackViewModel } from "@/presentation/view-models/buildCountFeedbackViewModel";
 import { ShoeNotice } from "@/presentation/components/ShoeNotice";
 import { NextHandWagerModal } from "@/presentation/components/NextHandWagerModal";
 import { buildNextWagerViewModel } from "@/presentation/view-models/buildNextWagerViewModel";
@@ -78,6 +80,7 @@ export function TrainerApp({
   );
   const motionEnabled = true;
   const nextWager = buildNextWagerViewModel(controller.state, viewModel.trueCount);
+  const countFeedback = buildCountFeedbackViewModel(controller.state?.countFeedback ?? null);
 
   return (
     <TableSurface>
@@ -155,6 +158,7 @@ export function TrainerApp({
         title="Start a new session?"
       />
       <CorrectionModal correction={viewModel.correction} onDismiss={controller.closeCorrection} />
+      <CountFeedbackModal feedback={countFeedback} onChoose={controller.chooseCountFeedback} />
     </TableSurface>
   );
 }

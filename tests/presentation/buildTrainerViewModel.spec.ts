@@ -49,6 +49,7 @@ describe("buildTrainerViewModel", () => {
       roundExposedCardIds: [],
       currentDecision: null,
       decisionNotice: null,
+      countFeedback: null,
       nextWagerDecision: null,
     };
 
@@ -114,6 +115,7 @@ describe("buildTrainerViewModel", () => {
       roundExposedCardIds: [],
       currentDecision: null,
       decisionNotice: null,
+      countFeedback: null,
       nextWagerDecision: null,
     };
 
@@ -174,6 +176,7 @@ describe("buildTrainerViewModel", () => {
       roundExposedCardIds: [],
       currentDecision: null,
       decisionNotice: null,
+      countFeedback: null,
       nextWagerDecision: null,
     };
 
@@ -233,6 +236,7 @@ describe("buildTrainerViewModel", () => {
       roundExposedCardIds: [],
       currentDecision: null,
       decisionNotice: null,
+      countFeedback: null,
       nextWagerDecision: null,
     };
 

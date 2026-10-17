@@ -37,6 +37,7 @@ These rules are currently part of the product and must stay aligned across domai
 - Hi-Lo running count follows face-up cards only (2–6: +1; 7–9: 0; 10/J/Q/K/A: -1), counting each physical card once
 - Count persists on reload and resets for a new session or the first hand of a reshuffled shoe; the old shoe's final count remains visible through the resolved hand's reveal sequence
 - Basic-strategy moves remain accepted; supported Hi-Lo exceptions are also accepted using the unrounded true count, visible cards only, and remaining decks in the explicit shoe
+- If a supported count play differs from the chart, show positive learning feedback for either accepted choice before advancing. Explain the original decision's true count, index, and rationale; allow a chart choice to switch or remain without a mistake penalty. Pending lessons persist on reload, and confirmation applies the move and stats exactly once.
 - Count-reference guidance must match supported indices and action eligibility; it must not imply that a positive count guarantees an advantage, particularly at 6:5
 - Every resolved round requires an Increase, Decrease, or Keep wager choice before countdown/manual advancement; custom amounts must be whole dollars within the table limits
 - Reshuffle only after the current hand completes once the cut card has been reached

@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { BlackjackTrainer } from "@/application/BlackjackTrainer";
 import {
   dismissCorrection,
+  confirmCountFeedback,
   restoreSession,
   startNewSession,
   startNextHand,
@@ -13,7 +14,7 @@ import {
   updateBlackjackPayout,
   submitNextWagerChoice,
 } from "@/application/useCases";
-import type { NextWagerChoice, TrainerState } from "@/application/trainerState";
+import type { CountFeedbackChoice, NextWagerChoice, TrainerState } from "@/application/trainerState";
 import { SessionStorageTrainerStore } from "@/infrastructure/SessionStorageTrainerStore";
 import { MathRandomSource } from "@/infrastructure/random";
 import type { TrainerStateStore } from "@/application/ports";
@@ -105,6 +106,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
       !state ||
       state.phase === "insuranceDecision" ||
       state.correction !== null ||
+      state.countFeedback !== null ||
       isCashOutOpen ||
       isResetSessionConfirmationOpen ||
       roundReaction !== null ||
@@ -118,6 +120,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     sessionKey,
   });
   const isNextHandCountdownBlocked =
+    !!state?.countFeedback ||
     !!state?.nextWagerDecision ||
     drinkInterruptions.isInterrupting ||
     isCashOutOpen ||
@@ -454,14 +457,15 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     );
   };
 
-  const takeAction = (action: PlayerAction) => {
+  const transitionDecision = (transition: (current: TrainerState) => TrainerState) => {
     setState((currentState) =>
       {
         if (!currentState) {
           return currentState;
         }
 
-        const nextState = submitPlayerAction(trainer, currentState, action);
+        const nextState = transition(currentState);
+        if (nextState === currentState) return currentState;
 
         if (
           nextState.phase === "roundResolved" &&
@@ -479,11 +483,13 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     );
   };
 
+  const takeAction = (action: PlayerAction) => transitionDecision((current) => submitPlayerAction(trainer, current, action));
+
   const chooseInsurance = (decision: InsuranceDecision) => {
-    setState((currentState) =>
-      currentState ? submitInsuranceChoice(trainer, currentState, decision) : currentState,
-    );
+    transitionDecision((current) => submitInsuranceChoice(trainer, current, decision));
   };
+
+  const chooseCountFeedback = (choice: CountFeedbackChoice) => transitionDecision((current) => confirmCountFeedback(trainer, current, choice));
 
   const closeCorrection = () => {
     setState((currentState) =>
@@ -530,6 +536,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
         ? Math.max(0, Math.ceil(countdownMsRemaining / 1000))
         : 0,
     cancelResetSession,
+    chooseCountFeedback,
     chooseNextWager,
     nextWagerPromptOpen: !!state?.nextWagerDecision &&
       state.phase === "roundResolved" && dealerRevealComplete && !dealerSequencePendingRef.current &&
@@ -555,7 +562,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
       state?.phase === "roundResolved" &&
       (!dealerRevealComplete || dealerSequencePendingRef.current),
     waitressReaction: drinkInterruptions.reaction,
-    insuranceDecisionActive: state?.phase === "insuranceDecision",
+    insuranceDecisionActive: state?.phase === "insuranceDecision" && !state.countFeedback,
     nextHand,
     state,
     updateWagerAmount: changeWagerAmount,

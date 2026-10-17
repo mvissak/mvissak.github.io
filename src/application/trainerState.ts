@@ -4,6 +4,7 @@ import type {
   BlackjackPayout,
   GamePhase,
   HandStatus,
+  InsuranceDecision,
   PlayerAction,
   RoundResult,
 } from "@/domain/types";
@@ -57,6 +58,19 @@ export interface DecisionTracker {
   mistakeKeys: string[];
 }
 
+interface CountFeedbackContext {
+  trueCount: number;
+  explanation: string;
+  rationale: string;
+}
+
+export type TrainingCountFeedback = CountFeedbackContext & (
+  | { kind: "action"; chosenAction: PlayerAction; basicAction: PlayerAction; preferredAction: PlayerAction }
+  | { kind: "insurance"; chosenAction: InsuranceDecision; basicAction: "no"; preferredAction: "yes" }
+);
+
+export type CountFeedbackChoice = "preferred" | "original";
+
 export interface TrainerState {
   phase: GamePhase;
   round: RoundState | null;
@@ -70,6 +84,7 @@ export interface TrainerState {
   roundExposedCardIds: string[];
   currentDecision: DecisionTracker | null;
   decisionNotice: string | null;
+  countFeedback: TrainingCountFeedback | null;
   nextWagerDecision: { baseWager: number; error: string | null } | null;
 }
 
@@ -79,11 +94,12 @@ type PersistedRoundState = Omit<RoundState, "blackjackPayout" | "shoeCardsRemain
   Partial<Pick<RoundState, "blackjackPayout" | "shoeCardsRemaining" | "insuranceBet" | "insuranceNetResult">>;
 
 export interface PersistedTrainerState {
-  state: Omit<TrainerState, "blackjackPayout" | "round" | "runningCountBeforeRound" | "roundExposedCardIds" | "decisionNotice" | "nextWagerDecision"> & {
+  state: Omit<TrainerState, "blackjackPayout" | "round" | "runningCountBeforeRound" | "roundExposedCardIds" | "decisionNotice" | "nextWagerDecision" | "countFeedback"> & {
     blackjackPayout?: BlackjackPayout;
     runningCountBeforeRound?: number;
     roundExposedCardIds?: string[];
     decisionNotice?: string | null;
+    countFeedback?: TrainingCountFeedback | null;
     nextWagerDecision?: TrainerState["nextWagerDecision"];
     round: PersistedRoundState | null;
   };

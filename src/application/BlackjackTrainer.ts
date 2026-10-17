@@ -9,13 +9,15 @@ import {
   shouldDealerPlay,
   settleInsurance,
 } from "@/domain/round";
-import { getCountAwareStrategyDecision, isCountInsuranceAllowed } from "@/domain/strategy";
+import { getCountAwareStrategyDecision, getCountInsuranceGuidance } from "@/domain/strategy";
+import { createActionCountFeedback, createInsuranceCountFeedback } from "@/application/countFeedback";
 import type { ShoeFactory } from "@/application/ports";
 import type {
   PersistedTrainerState,
   PlayerHandState,
   RoundState,
   TrainerState,
+  CountFeedbackChoice,
 } from "@/application/trainerState";
 import { createEmptyStats } from "@/application/trainerState";
 import { getCountBeforeNextRound, getDecisionTrueCount, restoreCountBeforeRound } from "@/application/cardCounting";
@@ -53,6 +55,7 @@ const createBaseState = (wagerAmount: number, blackjackPayout: BlackjackPayout):
   roundExposedCardIds: [],
   currentDecision: null,
   decisionNotice: null,
+  countFeedback: null,
   nextWagerDecision: null,
 });
 
@@ -90,6 +93,7 @@ export class BlackjackTrainer {
     return {
       ...snapshot.state,
       decisionNotice: snapshot.state.decisionNotice ?? null,
+      countFeedback: snapshot.state.countFeedback ?? null,
       nextWagerDecision: snapshot.state.nextWagerDecision === undefined
         ? snapshot.state.phase === "roundResolved" ? { baseWager: normalizeWagerAmount(snapshot.state.wagerAmount, this.defaultWagerAmount), error: null } : null
         : snapshot.state.nextWagerDecision,
@@ -144,7 +148,7 @@ export class BlackjackTrainer {
   }
 
   startNextHand(state: TrainerState): TrainerState {
-    if (state.phase !== "roundResolved" || state.nextWagerDecision) return state;
+    if (state.phase !== "roundResolved" || state.nextWagerDecision || state.countFeedback) return state;
     return this.dealRound({
       ...state,
       runningCountBeforeRound: getCountBeforeNextRound(state),
@@ -154,12 +158,13 @@ export class BlackjackTrainer {
       correction: null,
       currentDecision: null,
       decisionNotice: null,
+      countFeedback: null,
       bannerMessage: state.bannerMessage,
     });
   }
 
   submitAction(state: TrainerState, action: PlayerAction): TrainerState {
-    if (state.phase !== "playerTurn" || !state.round) {
+    if (state.phase !== "playerTurn" || !state.round || state.countFeedback) {
       return state;
     }
 
@@ -170,11 +175,12 @@ export class BlackjackTrainer {
       return state;
     }
 
+    const trueCount = getDecisionTrueCount(state);
     const strategyDecision = getCountAwareStrategyDecision(
       activeHand.cards,
       state.round.dealerCards[0],
       allowedActions,
-      getDecisionTrueCount(state),
+      trueCount,
     );
 
     if (!strategyDecision.acceptedActions.includes(action)) {
@@ -189,9 +195,30 @@ export class BlackjackTrainer {
       );
     }
 
+    const countFeedback = createActionCountFeedback(strategyDecision, action, trueCount);
+    if (countFeedback) return { ...state, correction: null, decisionNotice: null, countFeedback };
+    return this.acceptAction(state, action, null);
+  }
+
+  confirmCountFeedback(state: TrainerState, choice: CountFeedbackChoice): TrainerState {
+    const feedback = state.countFeedback;
+    if (!feedback) return state;
+    const cleared = { ...state, countFeedback: null };
+    const notice = (choice === "preferred" || feedback.chosenAction === feedback.preferredAction
+      ? "Count play accepted. " : "Basic strategy accepted. Count opportunity: ") + feedback.explanation;
+    if (feedback.kind === "action" && state.phase === "playerTurn") {
+      return this.acceptAction(cleared, choice === "preferred" ? feedback.preferredAction : feedback.chosenAction, notice);
+    }
+    if (feedback.kind === "insurance" && state.phase === "insuranceDecision") {
+      return this.acceptInsuranceDecision(cleared, choice === "preferred" ? feedback.preferredAction : feedback.chosenAction, notice);
+    }
+    return state;
+  }
+
+  private acceptAction(state: TrainerState, action: PlayerAction, decisionNotice: string | null): TrainerState {
     let nextState = {
       ...this.recordCorrectDecision(state),
-      decisionNotice: action === strategyDecision.countAction ? "Count play accepted. " + strategyDecision.countExplanation : null,
+      decisionNotice,
     };
     const actionResult = this.applyAction(nextState, action);
     let nextRound = this.advanceRound(actionResult.round);
@@ -224,28 +251,37 @@ export class BlackjackTrainer {
   }
 
   submitInsuranceDecision(state: TrainerState, decision: InsuranceDecision): TrainerState {
-    if (state.phase !== "insuranceDecision" || !state.round) {
+    if (state.phase !== "insuranceDecision" || !state.round || state.countFeedback) {
       return state;
     }
 
-    if (decision === "yes" && !isCountInsuranceAllowed(getDecisionTrueCount(state))) {
+    const trueCount = getDecisionTrueCount(state);
+    const guidance = getCountInsuranceGuidance(trueCount);
+    if (decision === "yes" && !guidance) {
       return this.recordMistake(state, {
         incorrectLabel: insuranceChoiceLabels.yes,
         recommendedLabel: insuranceChoiceLabels.no,
         explanation: "Insurance is a negative-expectation side bet below the Hi-Lo true-count +3 index. Decline it here; buying insurance is accepted only at a true count of +3 or higher.",
       }, "insurance:yes");
     }
+    const countFeedback = createInsuranceCountFeedback(guidance, decision, trueCount);
+    if (countFeedback) return { ...state, correction: null, decisionNotice: null, countFeedback };
+    return this.acceptInsuranceDecision(state, decision, null);
+  }
+
+  private acceptInsuranceDecision(state: TrainerState, decision: InsuranceDecision, decisionNotice: string | null): TrainerState {
+    const round = state.round as RoundState;
     const insuranceBet = decision === "yes"
-      ? state.round.playerHands[0].bet * blackjackRules.insuranceWagerFraction
+      ? round.playerHands[0].bet * blackjackRules.insuranceWagerFraction
       : 0;
     const nextState = this.recordCorrectDecision({
       ...state,
       correction: null,
-      decisionNotice: decision === "yes" ? "Count play accepted. Insurance is allowed at a true count of +3 or higher." : null,
+      decisionNotice,
       round: {
-        ...state.round,
+        ...round,
         insuranceBet,
-        insuranceNetResult: settleInsurance(insuranceBet, state.round.dealerCards),
+        insuranceNetResult: settleInsurance(insuranceBet, round.dealerCards),
       },
     });
     return this.resolveInsuranceDecision(nextState);
