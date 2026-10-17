@@ -27,8 +27,8 @@ npx tsc --noEmit
 
 This repo is configured for static export deployment to GitHub Pages.
 
-- Repository: `mgv-ai.github.io`
-- Production URL: `https://mgv-ai.github.io/`
+- Repository: `mvissak.github.io`
+- Production URL: `https://mvissak.github.io/`
 - Deployment workflow: `.github/workflows/deploy-pages.yml`
 
 To publish:
