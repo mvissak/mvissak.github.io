@@ -603,7 +603,7 @@ describe("TrainerApp", () => {
     expect(screen.queryByText(/20 beats dealer 17/i)).not.toBeInTheDocument();
   });
 
-  test("waits for the full dealer draw sequence before showing the round outcome overlay", async () => {
+  test("spaces dealer draws 600ms apart by default and waits for the full sequence before showing the outcome", async () => {
     vi.useFakeTimers();
     const trainer = createTrainerWithCards([
       createCard("10"),
@@ -619,7 +619,6 @@ describe("TrainerApp", () => {
         trainer,
         autoAdvanceDelayMs: 1_000,
         dealerRevealDelayMs: 30,
-        dealerDrawIntervalMs: 30,
         winCelebrationDurationMs: 60,
       }),
     );
@@ -642,7 +641,13 @@ describe("TrainerApp", () => {
     expect(screen.queryByTestId("round-result-reaction")).not.toBeInTheDocument();
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(30);
+      await vi.advanceTimersByTimeAsync(599);
+    });
+
+    expect(screen.queryByTestId("round-result-reaction")).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
     });
 
     expect(screen.getByTestId("round-result-reaction")).toBeInTheDocument();

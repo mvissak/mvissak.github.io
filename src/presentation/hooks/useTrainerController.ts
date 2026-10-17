@@ -97,7 +97,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
   const dealerRevealDelayMs =
     options.dealerRevealDelayMs ?? parseDurationToMs(themeTokens.motion.flip);
   const dealerDrawIntervalMs =
-    options.dealerDrawIntervalMs ?? parseDurationToMs(themeTokens.motion.slow);
+    options.dealerDrawIntervalMs ?? parseDurationToMs(themeTokens.motion.dealerDrawInterval);
   const winCelebrationDurationMs = options.winCelebrationDurationMs ?? 3_000;
   const drinkInterruptions = useDrinkServiceInterruptions({
     initialDelayMs: options.drinkOfferInitialDelayMs,

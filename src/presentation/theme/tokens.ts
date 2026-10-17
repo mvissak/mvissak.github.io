@@ -57,6 +57,7 @@ export const themeTokens = {
     base: "220ms",
     flip: "880ms",
     slow: "320ms",
+    dealerDrawInterval: "600ms",
   },
 } as const;
 
