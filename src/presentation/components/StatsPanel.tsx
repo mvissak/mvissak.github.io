@@ -9,7 +9,7 @@ export function StatsPanel({ metrics }: StatsPanelProps) {
   return (
     <section className="grid gap-3 mobile:grid-cols-2 desktop:grid-cols-3">
       {metrics.map((metric) => (
-        <MetricCard key={metric.label} label={metric.label} value={metric.value} />
+        <MetricCard key={metric.label} label={metric.label} value={metric.value} description={metric.description} />
       ))}
     </section>
   );

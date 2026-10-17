@@ -1,4 +1,6 @@
 import { BlackjackTrainer } from "@/application/BlackjackTrainer";
+import { confirmNextWager } from "@/application/wagerDecision";
+import type { TrainerState } from "@/application/trainerState";
 import { Shoe } from "@/domain/Shoe";
 import type { Card, RandomSource, Rank, Suit } from "@/domain/types";
 
@@ -16,6 +18,9 @@ export class FixedRandomSource implements RandomSource {
 }
 
 let cardSequence = 1;
+
+export const dealNextHand = (trainer: BlackjackTrainer, state: TrainerState): TrainerState =>
+  trainer.startNextHand(confirmNextWager(state, "keep"));
 
 export const createCard = (
   rank: Rank,
@@ -36,12 +41,16 @@ export const createTrainerWithCards = (
   new BlackjackTrainer({
     defaultWagerAmount,
     randomSource: new FixedRandomSource([0.5]),
-    shoeFactory: (randomSource) =>
-      Shoe.fromOrderedCards(
-        cardsAreInShoeOrder || cards.length < 4
-          ? cards
-          : [cards[0], cards[3], cards[2], cards[1], ...cards.slice(4)],
-        randomSource,
-        cutCardIndex,
-      ),
+    shoeFactory: (randomSource) => {
+      const orderedCards = cardsAreInShoeOrder || cards.length < 4
+        ? cards
+        : [cards[0], cards[3], cards[2], cards[1], ...cards.slice(4)];
+      // Keep realistic remaining-deck estimates while prescribing the first draws.
+      const remainingCards = new Shoe({ randomSource }).snapshot().cards;
+      for (const card of orderedCards) {
+        const index = remainingCards.findIndex((candidate) => candidate.rank === card.rank && candidate.suit === card.suit);
+        if (index !== -1) remainingCards.splice(index, 1);
+      }
+      return Shoe.fromOrderedCards([...orderedCards, ...remainingCards], randomSource, cutCardIndex);
+    },
   });

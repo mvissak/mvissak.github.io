@@ -5,6 +5,10 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { TrainerApp } from "@/presentation/components/TrainerApp";
 import { createCard, createTrainerWithCards, FixedRandomSource } from "@tests/helpers";
 
+const keepCurrentBet = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(await screen.findByRole("button", { name: /^Keep \$/ }));
+};
+
 describe("TrainerApp", () => {
   beforeEach(() => {
     window.sessionStorage.clear();
@@ -28,19 +32,20 @@ describe("TrainerApp", () => {
       winCelebrationDurationMs: 100,
     };
     const rendered = render(React.createElement(TrainerApp, props));
-    const selector = await screen.findByRole("combobox", { name: "Blackjack Payout" });
-    expect(selector).toHaveValue("6:5");
-    expect(within(selector).getAllByRole("option").map((option) => option.textContent)).toEqual(["6:5", "3:2"]);
+    const selector = await screen.findByRole("group", { name: "Blackjack Payout" });
+    expect(within(selector).getByRole("button", { name: "6:5" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(selector).getAllByRole("button").map((option) => option.textContent)).toEqual(["6:5", "3:2"]);
 
-    await user.selectOptions(selector, "3:2");
-    expect(selector).toHaveValue("3:2");
+    await user.click(within(selector).getByRole("button", { name: "3:2" }));
+    expect(within(selector).getByRole("button", { name: "3:2" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText(/Table rules:.*blackjack pays 6:5/)).toBeInTheDocument();
     rendered.unmount();
     render(React.createElement(TrainerApp, props));
 
-    expect(await screen.findByRole("combobox", { name: "Blackjack Payout" })).toHaveValue("3:2");
+    expect(await screen.findByRole("button", { name: "3:2" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText(/Table rules:.*blackjack pays 6:5/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Stand" }));
+    await keepCurrentBet(user);
     await user.click(await screen.findByRole("button", { name: /Next Hand/i }));
 
     expect(screen.getByText(/Table rules:.*blackjack pays 3:2/)).toBeInTheDocument();
@@ -208,7 +213,7 @@ describe("TrainerApp", () => {
     expect(await screen.findByText("Tracked Strategy, In Plain English")).toBeInTheDocument();
     expect(
       screen.getByText(
-        /This trainer uses a total-based chart, not composition-dependent deviations/i,
+        /This total-based chart is the baseline/i,
       ),
     ).toBeInTheDocument();
     expect(
@@ -241,6 +246,7 @@ describe("TrainerApp", () => {
     expect(within(overlay).getByText("+$25")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Next Hand/i })).not.toBeInTheDocument();
 
+    await keepCurrentBet(user);
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /Next Hand \(3s\)/i })).toBeInTheDocument();
     });
@@ -273,6 +279,7 @@ describe("TrainerApp", () => {
     await user.clear(wagerInput);
     await user.type(wagerInput, "30");
     await user.click(await screen.findByRole("button", { name: "Stand" }));
+    await keepCurrentBet(user);
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /Next Hand \(1s\)/i })).toBeInTheDocument();
     });
@@ -301,11 +308,12 @@ describe("TrainerApp", () => {
     );
 
     await user.click(await screen.findByRole("button", { name: "Stand" }));
+    await keepCurrentBet(user);
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /Next Hand/i })).toBeInTheDocument();
     });
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Blackjack Payout" }), "3:2");
+    await user.click(screen.getByRole("button", { name: "3:2" }));
     await user.click(screen.getByRole("button", { name: "New Session" }));
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -325,7 +333,7 @@ describe("TrainerApp", () => {
 
     expect(screen.queryByText("YOU WIN")).not.toBeInTheDocument();
     expect(screen.getByText("Choose an action")).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Blackjack Payout" })).toHaveValue("3:2");
+    expect(screen.getByRole("button", { name: "3:2" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText(/Table rules:.*blackjack pays 3:2/)).toBeInTheDocument();
   });
 
@@ -347,10 +355,11 @@ describe("TrainerApp", () => {
     );
 
     await user.click(await screen.findByRole("button", { name: "Stand" }));
+    await keepCurrentBet(user);
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Cash Out" })).toBeInTheDocument();
     });
-    await user.selectOptions(screen.getByRole("combobox", { name: "Blackjack Payout" }), "3:2");
+    await user.click(screen.getByRole("button", { name: "3:2" }));
     await user.click(screen.getByRole("button", { name: "Cash Out" }));
 
     const dialog = screen.getByRole("dialog");
@@ -360,7 +369,7 @@ describe("TrainerApp", () => {
     expect(within(dialog).getByText("$25.00")).toBeInTheDocument();
     expect(within(dialog).getByText(/victory diner breakfast/i)).toBeInTheDocument();
     expect(screen.getByText("Choose an action")).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Blackjack Payout" })).toHaveValue("3:2");
+    expect(screen.getByRole("button", { name: "3:2" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText(/Table rules:.*blackjack pays 3:2/)).toBeInTheDocument();
     expect(screen.getByText("$0.00")).toBeInTheDocument();
     expect(screen.getAllByText("0").length).toBeGreaterThan(0);
@@ -384,6 +393,7 @@ describe("TrainerApp", () => {
     );
 
     await user.click(await screen.findByRole("button", { name: "Stand" }));
+    await keepCurrentBet(user);
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Cash Out" })).toBeInTheDocument();
     });
@@ -557,6 +567,7 @@ describe("TrainerApp", () => {
     await user.click(await screen.findByRole("button", { name: "Stand" }));
 
     expect(screen.queryByText(/20 beats dealer 17/i)).not.toBeInTheDocument();
+    await keepCurrentBet(user);
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /Next Hand \(1s\)/i })).toBeEnabled();
     });
@@ -660,6 +671,7 @@ describe("TrainerApp", () => {
     );
 
     await user.click(await screen.findByRole("button", { name: "Stand" }));
+    await keepCurrentBet(user);
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /Next Hand \(1s\)/i })).toBeInTheDocument();
     });
@@ -699,6 +711,7 @@ describe("TrainerApp", () => {
     });
 
     expect(screen.queryByTestId("round-result-reaction")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Keep \$/ }));
     expect(screen.getByRole("button", { name: /Next Hand/i })).toBeInTheDocument();
   });
 
@@ -808,6 +821,7 @@ describe("TrainerApp", () => {
     });
 
     expect(screen.queryByTestId("round-result-reaction")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Keep \$/ }));
     expect(screen.getByRole("button", { name: /Next Hand/i })).toBeInTheDocument();
   });
 

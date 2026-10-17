@@ -4,6 +4,10 @@ import { ActionBar } from "@/presentation/components/ActionBar";
 import { BlackjackTrainer } from "@/application/BlackjackTrainer";
 import type { RandomSource } from "@/domain/types";
 import { CashOutModal } from "@/presentation/components/CashOutModal";
+import { CardCountingReferencePanel } from "@/presentation/components/CardCountingReferencePanel";
+import { DecisionNotice } from "@/presentation/components/DecisionNotice";
+import { NextHandWagerModal } from "@/presentation/components/NextHandWagerModal";
+import { buildNextWagerViewModel } from "@/presentation/view-models/buildNextWagerViewModel";
 import { ConfirmationModal } from "@/presentation/components/ConfirmationModal";
 import { CorrectionModal } from "@/presentation/components/CorrectionModal";
 import { HandArea } from "@/presentation/components/HandArea";
@@ -17,6 +21,7 @@ import { WaitressDrinkModal } from "@/presentation/components/WaitressDrinkModal
 import { WaitressReactionModal } from "@/presentation/components/WaitressReactionModal";
 import { useTrainerController } from "@/presentation/hooks/useTrainerController";
 import { buildStrategyReferenceViewModel } from "@/presentation/view-models/buildStrategyReferenceViewModel";
+import { buildCardCountingReferenceViewModel } from "@/presentation/view-models/buildCardCountingReferenceViewModel";
 import { buildTrainerViewModel } from "@/presentation/view-models/buildTrainerViewModel";
 
 interface TrainerAppProps {
@@ -65,7 +70,13 @@ export function TrainerApp({
     suppressResolvedOutcome: controller.suppressResolvedOutcome,
   });
   const strategyReference = buildStrategyReferenceViewModel();
+  const countReference = buildCardCountingReferenceViewModel(
+    viewModel.runningCount,
+    controller.state?.round?.blackjackPayout ?? controller.blackjackPayout,
+    viewModel.trueCount,
+  );
   const motionEnabled = true;
+  const nextWager = buildNextWagerViewModel(controller.state, viewModel.trueCount);
 
   return (
     <TableSurface>
@@ -91,6 +102,7 @@ export function TrainerApp({
         ))}
       </section>
 
+      <DecisionNotice message={viewModel.decisionNotice} />
       <ActionBar
         actions={viewModel.actions}
         canAdvanceToNextHand={controller.canAdvanceToNextHand}
@@ -101,9 +113,11 @@ export function TrainerApp({
         onNextHand={controller.nextHand}
         resultReactionActive={controller.resultReactionActive}
         roundResolved={controller.state?.phase === "roundResolved"}
+        wagerPromptActive={controller.nextWagerPromptOpen}
       />
 
       <StatsPanel metrics={viewModel.metrics} />
+      <CardCountingReferencePanel reference={countReference} />
       <StrategyReferencePanel reference={strategyReference} />
 
       <CashOutModal
@@ -111,8 +125,10 @@ export function TrainerApp({
         isOpen={controller.isCashOutOpen}
         onDismiss={controller.closeCashOut}
       />
+      <NextHandWagerModal isOpen={controller.nextWagerPromptOpen} wager={nextWager} onChoose={controller.chooseNextWager} />
       <InsuranceOfferModal
         insuranceAmountLabel={viewModel.insuranceOffer?.amountLabel ?? "$0.00"}
+        trueCountLabel={viewModel.insuranceOffer?.trueCountLabel ?? "—"}
         isOpen={controller.insuranceDecisionActive === true}
         onChooseNo={() => controller.chooseInsurance("no")}
         onChooseYes={() => controller.chooseInsurance("yes")}

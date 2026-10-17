@@ -15,6 +15,7 @@ interface ActionBarProps {
   onNextHand: () => void;
   resultReactionActive: boolean;
   roundResolved: boolean;
+  wagerPromptActive: boolean;
 }
 
 export function ActionBar({
@@ -27,11 +28,12 @@ export function ActionBar({
   onNextHand,
   resultReactionActive,
   roundResolved,
+  wagerPromptActive,
 }: ActionBarProps) {
   const isDealerResolving = roundResolved && !canAdvanceToNextHand && !resultReactionActive;
   const isResultShowing = roundResolved && resultReactionActive;
   const isAwaitingNextHand = roundResolved && canAdvanceToNextHand;
-  const title = isAwaitingNextHand
+  const title = wagerPromptActive ? "Choose next bet" : isAwaitingNextHand
     ? "Hand complete"
     : isResultShowing
       ? "Result showing"

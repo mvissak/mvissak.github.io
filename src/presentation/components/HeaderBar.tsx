@@ -33,14 +33,14 @@ export function HeaderBar({
           Basic Strategy Table Practice
         </h1>
         <p className="mt-3 max-w-2xl text-base text-ivory/80">
-          Every hand is checked against the exact 6-deck S17 chart. Wrong moves pause the
-          hand and explain the correction before play continues.
+          Practice the 6-deck S17 chart with supported Hi-Lo count exceptions. Unsupported
+          moves pause the hand and explain the correction before play continues.
         </p>
         <p className="mt-2 max-w-3xl text-sm text-ivory/70">
           Table rules: 6-deck shoe, blackjack pays {blackjackPayoutLabel}, dealer stands on soft 17 and all
           totals 17+, double on any two cards including after splits, no surrender,
           dealer checks for blackjack with an ace or 10-value upcard before player actions,
-          insurance is always declined in training, and a ${blackjackRules.minimumWagerAmount}-${blackjackRules.maximumWagerAmount} bet range.
+          insurance allowed at true count +3 or higher, and a ${blackjackRules.minimumWagerAmount}-${blackjackRules.maximumWagerAmount} bet range.
         </p>
       </div>
       <div className="flex flex-wrap gap-3">

@@ -11,8 +11,9 @@ import {
   submitPlayerAction,
   updateWagerAmount,
   updateBlackjackPayout,
+  submitNextWagerChoice,
 } from "@/application/useCases";
-import type { TrainerState } from "@/application/trainerState";
+import type { NextWagerChoice, TrainerState } from "@/application/trainerState";
 import { SessionStorageTrainerStore } from "@/infrastructure/SessionStorageTrainerStore";
 import { MathRandomSource } from "@/infrastructure/random";
 import type { TrainerStateStore } from "@/application/ports";
@@ -25,6 +26,7 @@ import {
 } from "@/presentation/view-models/buildCashOutMessage";
 import type { RoundReactionType } from "@/presentation/roundReaction";
 import { useDrinkServiceInterruptions } from "@/presentation/hooks/useDrinkServiceInterruptions";
+import { useCardCounting } from "@/presentation/hooks/useCardCounting";
 
 interface UseTrainerControllerOptions {
   trainer?: BlackjackTrainer;
@@ -102,6 +104,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
       isResetSessionConfirmationOpen ||
       roundReaction !== null ||
       isRoundReactionPending ||
+      !!state.nextWagerDecision ||
       !dealerRevealComplete,
     maximumIntervalMs: options.drinkOfferMaximumIntervalMs,
     minimumIntervalMs: options.drinkOfferMinimumIntervalMs,
@@ -110,11 +113,18 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     sessionKey,
   });
   const isNextHandCountdownBlocked =
+    !!state?.nextWagerDecision ||
     drinkInterruptions.isInterrupting ||
     isCashOutOpen ||
     isResetSessionConfirmationOpen ||
     roundReaction !== null ||
     isRoundReactionPending;
+  const round = state?.round;
+  const phase = state?.phase;
+  const currentRoundReactionSignature = phase === "roundResolved" && round ? JSON.stringify({
+    hands: round.playerHands.map((hand) => ({ id: hand.id, netResult: hand.netResult, outcome: hand.outcome })),
+    nextHandSequence: state?.nextHandSequence,
+  }) : null;
 
   const clearAutoAdvanceCountdown = () => {
     if (autoAdvanceTimerRef.current !== null) {
@@ -202,16 +212,17 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
   }, [state]);
 
   useLayoutEffect(() => {
-    if (!state || state.phase !== "roundResolved" || !state.round) {
+    if (phase !== "roundResolved" || !round) {
       clearDealerRevealSequence();
       return;
     }
 
     const previousState = previousStateRef.current;
-    const justResolved = previousState?.phase !== "roundResolved";
-    const shouldFlipDealerHoleCard = state.round.dealerHoleHidden;
+    const justResolved = previousState?.phase !== "roundResolved" ||
+      previousState.round?.playerHands[0]?.id !== round.playerHands[0]?.id;
+    const shouldFlipDealerHoleCard = round.dealerHoleHidden;
     const shouldAnimateDealerResolution =
-      justResolved && (shouldFlipDealerHoleCard || state.round.dealerCards.length > 2);
+      justResolved && (shouldFlipDealerHoleCard || round.dealerCards.length > 2);
 
     if (!shouldAnimateDealerResolution) {
       clearDealerRevealSequence();
@@ -225,7 +236,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     setDealerRevealComplete(false);
 
     let nextVisibleCardCount = 2;
-    const totalDealerCards = state.round.dealerCards.length;
+    const totalDealerCards = round.dealerCards.length;
 
     const revealNextDealerCard = () => {
       nextVisibleCardCount += 1;
@@ -266,7 +277,15 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     return () => {
       clearDealerRevealSequence();
     };
-  }, [dealerDrawIntervalMs, dealerRevealDelayMs, state]);
+  }, [dealerDrawIntervalMs, dealerRevealDelayMs, round, phase]);
+
+  useCardCounting({
+    state,
+    setState,
+    dealerSequencePendingRef,
+    dealerVisibleCardCount,
+    revealDealerHoleCard,
+  });
 
   useEffect(() => {
     previousStateRef.current = state;
@@ -283,14 +302,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
       return;
     }
 
-    const roundSignature = JSON.stringify({
-      hands: state.round.playerHands.map((hand) => ({
-        id: hand.id,
-        netResult: hand.netResult,
-        outcome: hand.outcome,
-      })),
-      nextHandSequence: state.nextHandSequence,
-    });
+    const roundSignature = currentRoundReactionSignature;
 
     if (reactedRoundSignatureRef.current === roundSignature) {
       return;
@@ -298,7 +310,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
 
     reactedRoundSignatureRef.current = roundSignature;
     const resolvedHands = state.round.playerHands.filter((hand) => hand.outcome !== null);
-    const totalNet = resolvedHands.reduce((sum, hand) => sum + hand.netResult, 0);
+    const totalNet = resolvedHands.reduce((sum, hand) => sum + hand.netResult, state.round.insuranceNetResult);
     const hasDealerBlackjackLoss = resolvedHands.some(
       (hand) => hand.summary === "Dealer blackjack.",
     );
@@ -343,7 +355,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     }
 
     startReaction();
-  }, [blackjackReactionDelayMs, dealerRevealComplete, state, winCelebrationDurationMs]);
+  }, [blackjackReactionDelayMs, dealerRevealComplete, state, winCelebrationDurationMs, currentRoundReactionSignature]);
 
   useEffect(() => {
     if (
@@ -419,6 +431,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
   };
 
   const nextHand = () => {
+    if (state?.nextWagerDecision) return;
     clearDealerRevealSequence();
     clearAutoAdvanceCountdown();
     clearRoundReaction();
@@ -478,8 +491,13 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     );
   };
 
+  const chooseNextWager = (choice: NextWagerChoice, amount?: number) => {
+    setState((current) => current ? submitNextWagerChoice(current, choice, amount) : current);
+  };
+
   return {
     canAdvanceToNextHand:
+      !state?.nextWagerDecision &&
       state?.phase === "roundResolved" &&
       dealerRevealComplete &&
       !dealerSequencePendingRef.current &&
@@ -500,6 +518,11 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
         ? Math.max(0, Math.ceil(countdownMsRemaining / 1000))
         : 0,
     cancelResetSession,
+    chooseNextWager,
+    nextWagerPromptOpen: !!state?.nextWagerDecision &&
+      state.phase === "roundResolved" && dealerRevealComplete && !dealerSequencePendingRef.current &&
+      reactedRoundSignatureRef.current === currentRoundReactionSignature && roundReaction === null && !isRoundReactionPending &&
+      !isCashOutOpen && !isResetSessionConfirmationOpen && !drinkInterruptions.isInterrupting,
     cashOutMessage,
     closeCashOut,
     dismissDrinkReaction: drinkInterruptions.dismissReaction,

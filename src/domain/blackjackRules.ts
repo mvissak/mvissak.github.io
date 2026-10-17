@@ -22,5 +22,7 @@ export const blackjackRules = {
   doubleOnAnyTwoCards: true,
   doubleAfterSplit: true,
   noSurrender: true,
+  insuranceWagerFraction: 0.5,
+  insurancePayout: 2,
   maxHandsPerRound: 4,
 } as const;

@@ -46,6 +46,9 @@ export interface RoundState {
   activeHandIndex: number;
   resultSummary: string | null;
   cutCardReachedDuringRound: boolean;
+  shoeCardsRemaining: number;
+  insuranceBet: number;
+  insuranceNetResult: number;
 }
 
 export interface DecisionTracker {
@@ -63,13 +66,26 @@ export interface TrainerState {
   wagerAmount: number;
   blackjackPayout: BlackjackPayout;
   nextHandSequence: number;
+  runningCountBeforeRound: number;
+  roundExposedCardIds: string[];
   currentDecision: DecisionTracker | null;
+  decisionNotice: string | null;
+  nextWagerDecision: { baseWager: number; error: string | null } | null;
 }
 
+export type NextWagerChoice = "increase" | "decrease" | "keep";
+
+type PersistedRoundState = Omit<RoundState, "blackjackPayout" | "shoeCardsRemaining" | "insuranceBet" | "insuranceNetResult"> &
+  Partial<Pick<RoundState, "blackjackPayout" | "shoeCardsRemaining" | "insuranceBet" | "insuranceNetResult">>;
+
 export interface PersistedTrainerState {
-  state: Omit<TrainerState, "blackjackPayout" | "round"> & {
+  state: Omit<TrainerState, "blackjackPayout" | "round" | "runningCountBeforeRound" | "roundExposedCardIds" | "decisionNotice" | "nextWagerDecision"> & {
     blackjackPayout?: BlackjackPayout;
-    round: (Omit<RoundState, "blackjackPayout"> & { blackjackPayout?: BlackjackPayout }) | null;
+    runningCountBeforeRound?: number;
+    roundExposedCardIds?: string[];
+    decisionNotice?: string | null;
+    nextWagerDecision?: TrainerState["nextWagerDecision"];
+    round: PersistedRoundState | null;
   };
   shoe: ShoeSnapshot;
 }

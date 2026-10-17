@@ -5,6 +5,7 @@ import { ViewportPortal } from "@/presentation/components/ViewportPortal";
 
 interface InsuranceOfferModalProps {
   insuranceAmountLabel: string;
+  trueCountLabel: string;
   isOpen: boolean;
   onChooseNo: () => void;
   onChooseYes: () => void;
@@ -12,6 +13,7 @@ interface InsuranceOfferModalProps {
 
 export function InsuranceOfferModal({
   insuranceAmountLabel,
+  trueCountLabel,
   isOpen,
   onChooseNo,
   onChooseYes,
@@ -37,6 +39,7 @@ export function InsuranceOfferModal({
             Insurance costs {insuranceAmountLabel}, which is 50% of your original wager. Do you want
             to buy insurance before the dealer checks for blackjack?
           </p>
+          <p className="mt-2 text-sm leading-6 text-ivory/85">Current true count: {trueCountLabel}. Declining is always accepted. Buying insurance is accepted at true count +3 or higher and pays 2:1 on dealer blackjack.</p>
           <div className="mt-6 flex flex-wrap gap-3">
             <ControlButton variant="ghost" onClick={onChooseYes}>
               Yes, Buy Insurance

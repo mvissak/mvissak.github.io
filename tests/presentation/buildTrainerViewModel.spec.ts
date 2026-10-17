@@ -27,6 +27,9 @@ describe("buildTrainerViewModel", () => {
         activeHandIndex: 0,
         resultSummary: "hand-1: 21 beats dealer 16.",
         cutCardReachedDuringRound: false,
+        shoeCardsRemaining: 208,
+        insuranceBet: 0,
+        insuranceNetResult: 0,
       },
       correction: null,
       stats: {
@@ -42,7 +45,11 @@ describe("buildTrainerViewModel", () => {
       wagerAmount: 25,
       blackjackPayout: "3:2",
       nextHandSequence: 2,
+      runningCountBeforeRound: 0,
+      roundExposedCardIds: [],
       currentDecision: null,
+      decisionNotice: null,
+      nextWagerDecision: null,
     };
 
     const viewModel = buildTrainerViewModel(state);
@@ -85,6 +92,9 @@ describe("buildTrainerViewModel", () => {
         activeHandIndex: 0,
         resultSummary: "Dealer 21 beats 19.",
         cutCardReachedDuringRound: false,
+        shoeCardsRemaining: 208,
+        insuranceBet: 0,
+        insuranceNetResult: 0,
       },
       correction: null,
       stats: {
@@ -100,7 +110,11 @@ describe("buildTrainerViewModel", () => {
       wagerAmount: 25,
       blackjackPayout: "6:5",
       nextHandSequence: 2,
+      runningCountBeforeRound: 0,
+      roundExposedCardIds: [],
       currentDecision: null,
+      decisionNotice: null,
+      nextWagerDecision: null,
     };
 
     const viewModel = buildTrainerViewModel(state, {
@@ -138,6 +152,9 @@ describe("buildTrainerViewModel", () => {
         activeHandIndex: 0,
         resultSummary: "hand-1: Blackjack pays 3:2.",
         cutCardReachedDuringRound: false,
+        shoeCardsRemaining: 208,
+        insuranceBet: 0,
+        insuranceNetResult: 0,
       },
       correction: null,
       stats: {
@@ -153,7 +170,11 @@ describe("buildTrainerViewModel", () => {
       wagerAmount: 25,
       blackjackPayout: "3:2",
       nextHandSequence: 2,
+      runningCountBeforeRound: 0,
+      roundExposedCardIds: [],
       currentDecision: null,
+      decisionNotice: null,
+      nextWagerDecision: null,
     };
 
     const hiddenViewModel = buildTrainerViewModel(state);
@@ -190,6 +211,9 @@ describe("buildTrainerViewModel", () => {
         activeHandIndex: 0,
         resultSummary: "hand-1: 20 beats dealer 16.",
         cutCardReachedDuringRound: false,
+        shoeCardsRemaining: 208,
+        insuranceBet: 0,
+        insuranceNetResult: 0,
       },
       correction: null,
       stats: {
@@ -205,7 +229,11 @@ describe("buildTrainerViewModel", () => {
       wagerAmount: 100,
       blackjackPayout: "6:5",
       nextHandSequence: 2,
+      runningCountBeforeRound: 0,
+      roundExposedCardIds: [],
       currentDecision: null,
+      decisionNotice: null,
+      nextWagerDecision: null,
     };
 
     const viewModel = buildTrainerViewModel(state);

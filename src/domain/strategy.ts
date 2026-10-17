@@ -1,6 +1,7 @@
 import { dealerUpcardOrder } from "@/domain/types";
 import { blackjackRules } from "@/domain/blackjackRules";
-import { getDealerUpcardRank, getHandProfile } from "@/domain/hand";
+import { getDealerUpcardRank, getHandProfile, getHandValue } from "@/domain/hand";
+import { hiLoIndices } from "@/domain/cardCountingReference";
 import type {
   AllowedActions,
   Card,
@@ -235,6 +236,56 @@ const buildReferenceRows = (
     summary: `${buildRuleSegmentSummary(rowKey)}.`,
   }));
 
+export interface CountAwareStrategyDecision {
+  basicStrategy: StrategyDecision;
+  acceptedActions: PlayerAction[];
+  countAction: PlayerAction | null;
+  countExplanation: string | null;
+}
+
+export const getCountAwareStrategyDecision = (
+  cards: Card[],
+  dealerCard: Card,
+  allowedActions: AllowedActions,
+  trueCount: number | null,
+): CountAwareStrategyDecision => {
+  const basicStrategy = getBasicStrategyDecision(cards, dealerCard, allowedActions);
+  const baseline: CountAwareStrategyDecision = {
+    basicStrategy,
+    acceptedActions: [basicStrategy.action],
+    countAction: null,
+    countExplanation: null,
+  };
+  if (trueCount === null || !Number.isFinite(trueCount)) return baseline;
+  const profile = getHandProfile(cards, allowedActions.split);
+  const value = getHandValue(cards);
+  const upcard = getDealerUpcardRank(dealerCard);
+  const index = hiLoIndices.find((candidate) =>
+    candidate.dealerUpcard === upcard && (
+      candidate.kind === "hard"
+        ? profile.kind === "hard" && !value.isSoft && candidate.total === value.total
+        : candidate.kind === "pair" && profile.kind === "pair" && candidate.rank === profile.pairRank
+    ),
+  );
+  if (!index || index.kind === "insurance") return baseline;
+  const countAction = trueCount >= index.minimumTrueCount
+    ? index.action
+    : index.kind === "hard" && index.action === "stand" ? "hit" : null;
+  if (!countAction || !allowedActions[countAction] || countAction === basicStrategy.action) return baseline;
+  const comparison = trueCount >= index.minimumTrueCount ? "at or above" : "below";
+  return {
+    basicStrategy,
+    acceptedActions: [basicStrategy.action, countAction],
+    countAction,
+    countExplanation: `Hi-Lo accepts ${countAction} on ${profile.label} vs ${upcard} when the true count is ${comparison} ${index.minimumTrueCount}. Basic strategy remains accepted.`,
+  };
+};
+
+export const isCountInsuranceAllowed = (trueCount: number | null): boolean => {
+  const index = hiLoIndices.find((candidate) => candidate.kind === "insurance");
+  return trueCount !== null && Number.isFinite(trueCount) && !!index && trueCount >= index.minimumTrueCount;
+};
+
 export const getBasicStrategyReference = (): BasicStrategyReference => ({
   assumptions: [
     `This trainer grades decisions against a total-based ${blackjackRules.deckCount}-deck dealer-stands-on-soft-17 basic-strategy chart.`,
@@ -242,8 +293,9 @@ export const getBasicStrategyReference = (): BasicStrategyReference => ({
     "Dealer 10 means any ten-value upcard: 10, J, Q, or K.",
     "Splits are only offered on identical ranks. Mixed ten-value hands such as Q,10 are treated as hard totals, not as pairs.",
     "Rows marked double if allowed fall back to hit or stand exactly as written when doubling is unavailable.",
-    "5,5 is treated as a hard 10, not as a split pair, and 10,10 always stands.",
-    "Insurance is always declined. It is treated as a negative-expectation side bet, not part of the main hand strategy.",
+    "5,5 is treated as a hard 10. Basic strategy stands on 10,10; a supported true-count index can also allow splitting.",
+    "Basic strategy remains accepted. Supported Hi-Lo exceptions are also accepted when their true-count threshold is met and the action is legal.",
+    "Declining insurance remains accepted. Buying it is also accepted at a true count of +3 or higher, with a half-wager side bet paying 2:1 on dealer blackjack.",
   ],
   sections: [
     {

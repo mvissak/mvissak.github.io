@@ -13,8 +13,8 @@ export function StrategyReferencePanel({ reference }: StrategyReferencePanelProp
         Tracked Strategy, In Plain English
       </h2>
       <p className="mt-3 max-w-4xl text-sm leading-6 text-ivory/85">
-        This trainer uses a total-based chart, not composition-dependent deviations. The
-        guidance below is the exact decision reference the app is grading against.
+        This total-based chart is the baseline. Its moves remain accepted, and supported
+        Hi-Lo count exceptions can also advance the hand when their true-count index applies.
       </p>
 
       <div className="mt-5">

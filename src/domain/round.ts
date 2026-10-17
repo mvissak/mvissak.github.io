@@ -83,6 +83,9 @@ export const shouldDealerPlay = (
   playerHands: ReadonlyArray<Pick<PlayerRoundHand, "cards">>,
 ): boolean => playerHands.some((hand) => !getHandValue(hand.cards).isBust);
 
+export const settleInsurance = (bet: number, dealerCards: Card[]): number =>
+  bet === 0 ? 0 : getHandValue(dealerCards).isBlackjack ? bet * blackjackRules.insurancePayout : -bet;
+
 export const settleHand = (
   hand: PlayerRoundHand,
   dealerCards: Card[],

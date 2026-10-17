@@ -7,8 +7,9 @@ import {
   getAllowedActions,
   playDealerHand,
   shouldDealerPlay,
+  settleInsurance,
 } from "@/domain/round";
-import { getBasicStrategyDecision } from "@/domain/strategy";
+import { getCountAwareStrategyDecision, isCountInsuranceAllowed } from "@/domain/strategy";
 import type { ShoeFactory } from "@/application/ports";
 import type {
   PersistedTrainerState,
@@ -17,6 +18,8 @@ import type {
   TrainerState,
 } from "@/application/trainerState";
 import { createEmptyStats } from "@/application/trainerState";
+import { getCountBeforeNextRound, getDecisionTrueCount, restoreCountBeforeRound } from "@/application/cardCounting";
+import { normalizeWagerAmount } from "@/application/wagerDecision";
 import type { BlackjackPayout, Card, InsuranceDecision, PlayerAction, RandomSource } from "@/domain/types";
 
 interface BlackjackTrainerOptions {
@@ -24,17 +27,6 @@ interface BlackjackTrainerOptions {
   randomSource: RandomSource;
   shoeFactory?: ShoeFactory;
 }
-
-const normalizeWagerAmount = (amount: number, fallbackAmount: number): number => {
-  if (!Number.isFinite(amount)) {
-    return fallbackAmount;
-  }
-
-  return Math.min(
-    blackjackRules.maximumWagerAmount,
-    Math.max(blackjackRules.minimumWagerAmount, Math.round(amount)),
-  );
-};
 
 const actionLabels: Record<PlayerAction, string> = {
   hit: "Hit",
@@ -57,7 +49,11 @@ const createBaseState = (wagerAmount: number, blackjackPayout: BlackjackPayout):
   wagerAmount,
   blackjackPayout,
   nextHandSequence: 1,
+  runningCountBeforeRound: 0,
+  roundExposedCardIds: [],
   currentDecision: null,
+  decisionNotice: null,
+  nextWagerDecision: null,
 });
 
 export class BlackjackTrainer {
@@ -93,12 +89,22 @@ export class BlackjackTrainer {
 
     return {
       ...snapshot.state,
+      decisionNotice: snapshot.state.decisionNotice ?? null,
+      nextWagerDecision: snapshot.state.nextWagerDecision === undefined
+        ? snapshot.state.phase === "roundResolved" ? { baseWager: normalizeWagerAmount(snapshot.state.wagerAmount, this.defaultWagerAmount), error: null } : null
+        : snapshot.state.nextWagerDecision,
+      runningCountBeforeRound: restoreCountBeforeRound(snapshot),
+      roundExposedCardIds: snapshot.state.roundExposedCardIds ?? [],
       blackjackPayout: isBlackjackPayout(snapshot.state.blackjackPayout)
         ? snapshot.state.blackjackPayout
         : blackjackRules.defaultBlackjackPayout,
       round: snapshot.state.round
         ? {
             ...snapshot.state.round,
+            shoeCardsRemaining: snapshot.state.round.shoeCardsRemaining ??
+              (snapshot.state.phase === "roundResolved" && snapshot.state.round.cutCardReachedDuringRound ? 0 : this.shoe.remainingCards()),
+            insuranceBet: snapshot.state.round.insuranceBet ?? 0,
+            insuranceNetResult: snapshot.state.round.insuranceNetResult ?? 0,
             // Hands saved before payout selection was introduced were dealt at 3:2.
             blackjackPayout: isBlackjackPayout(snapshot.state.round.blackjackPayout)
               ? snapshot.state.round.blackjackPayout
@@ -138,12 +144,16 @@ export class BlackjackTrainer {
   }
 
   startNextHand(state: TrainerState): TrainerState {
+    if (state.phase !== "roundResolved" || state.nextWagerDecision) return state;
     return this.dealRound({
       ...state,
+      runningCountBeforeRound: getCountBeforeNextRound(state),
+      roundExposedCardIds: [],
       phase: "ready",
       round: null,
       correction: null,
       currentDecision: null,
+      decisionNotice: null,
       bannerMessage: state.bannerMessage,
     });
   }
@@ -160,27 +170,32 @@ export class BlackjackTrainer {
       return state;
     }
 
-    const strategyDecision = getBasicStrategyDecision(
+    const strategyDecision = getCountAwareStrategyDecision(
       activeHand.cards,
       state.round.dealerCards[0],
       allowedActions,
+      getDecisionTrueCount(state),
     );
 
-    if (strategyDecision.action !== action) {
+    if (!strategyDecision.acceptedActions.includes(action)) {
       return this.recordMistake(
         state,
         {
           incorrectAction: action,
-          recommendedAction: strategyDecision.action,
-          explanation: strategyDecision.explanation,
+          recommendedAction: strategyDecision.basicStrategy.action,
+          explanation: strategyDecision.basicStrategy.explanation + (strategyDecision.countExplanation ? " " + strategyDecision.countExplanation : ""),
         },
         action,
       );
     }
 
-    let nextState = this.recordCorrectDecision(state);
+    let nextState = {
+      ...this.recordCorrectDecision(state),
+      decisionNotice: action === strategyDecision.countAction ? "Count play accepted. " + strategyDecision.countExplanation : null,
+    };
     const actionResult = this.applyAction(nextState, action);
     let nextRound = this.advanceRound(actionResult.round);
+    nextRound = { ...nextRound, shoeCardsRemaining: this.shoe.remainingCards() };
     nextState = {
       ...nextState,
       nextHandSequence: actionResult.nextHandSequence,
@@ -199,33 +214,13 @@ export class BlackjackTrainer {
     const dealerCards = shouldDealerPlay(nextRound.playerHands)
       ? playDealerHand(nextRound.dealerCards, this.shoe)
       : nextRound.dealerCards;
-    const resolvedRound = this.resolveRound({
+    return this.finishRound(nextState, {
       ...nextRound,
       dealerCards,
       dealerHoleHidden: false,
+      shoeCardsRemaining: this.shoe.remainingCards(),
+      cutCardReachedDuringRound: nextRound.cutCardReachedDuringRound || this.shoe.needsReshuffle(),
     });
-
-    const shouldReshuffle = this.shoe.needsReshuffle();
-
-    if (shouldReshuffle) {
-      this.shoe.reshuffle();
-    }
-
-    return {
-      ...nextState,
-      phase: "roundResolved",
-      round: resolvedRound,
-      correction: null,
-      currentDecision: null,
-      bannerMessage: shouldReshuffle ? "Shoe reshuffled for the next hand." : null,
-      stats: {
-        ...nextState.stats,
-        totalHandsPlayed: nextState.stats.totalHandsPlayed + resolvedRound.playerHands.length,
-        winnings:
-          nextState.stats.winnings +
-          resolvedRound.playerHands.reduce((total, hand) => total + hand.netResult, 0),
-      },
-    };
   }
 
   submitInsuranceDecision(state: TrainerState, decision: InsuranceDecision): TrainerState {
@@ -233,24 +228,26 @@ export class BlackjackTrainer {
       return state;
     }
 
-    if (decision === "yes") {
-      return this.recordMistake(
-        state,
-        {
-          incorrectLabel: insuranceChoiceLabels.yes,
-          recommendedLabel: insuranceChoiceLabels.no,
-          explanation:
-            "Insurance is a negative-expectation side bet. Basic strategy always declines it because the half-bet cost is not justified just because the dealer shows an ace.",
-        },
-        `insurance:${decision}`,
-      );
+    if (decision === "yes" && !isCountInsuranceAllowed(getDecisionTrueCount(state))) {
+      return this.recordMistake(state, {
+        incorrectLabel: insuranceChoiceLabels.yes,
+        recommendedLabel: insuranceChoiceLabels.no,
+        explanation: "Insurance is a negative-expectation side bet below the Hi-Lo true-count +3 index. Decline it here; buying insurance is accepted only at a true count of +3 or higher.",
+      }, "insurance:yes");
     }
-
+    const insuranceBet = decision === "yes"
+      ? state.round.playerHands[0].bet * blackjackRules.insuranceWagerFraction
+      : 0;
     const nextState = this.recordCorrectDecision({
       ...state,
       correction: null,
+      decisionNotice: decision === "yes" ? "Count play accepted. Insurance is allowed at a true count of +3 or higher." : null,
+      round: {
+        ...state.round,
+        insuranceBet,
+        insuranceNetResult: settleInsurance(insuranceBet, state.round.dealerCards),
+      },
     });
-
     return this.resolveInsuranceDecision(nextState);
   }
 
@@ -259,12 +256,7 @@ export class BlackjackTrainer {
     const dealerHole = this.shoe.drawCard();
     const playerSecond = this.shoe.drawCard();
     const dealerUpcard = this.shoe.drawCard();
-
-    const playerHand = this.createPlayerHand(
-      state.nextHandSequence,
-      [playerFirst, playerSecond],
-      state.wagerAmount,
-    );
+    const playerHand = this.createPlayerHand(state.nextHandSequence, [playerFirst, playerSecond], state.wagerAmount);
     const round: RoundState = {
       blackjackPayout: state.blackjackPayout,
       dealerCards: [dealerUpcard, dealerHole],
@@ -273,116 +265,42 @@ export class BlackjackTrainer {
       activeHandIndex: 0,
       resultSummary: null,
       cutCardReachedDuringRound: this.shoe.needsReshuffle(),
+      shoeCardsRemaining: this.shoe.remainingCards(),
+      insuranceBet: 0,
+      insuranceNetResult: 0,
     };
-
-    const playerValue = getHandValue(playerHand.cards);
-    const dealerValue = getHandValue(round.dealerCards);
-    const dealerUpcardKind = getDealerUpcardRank(dealerUpcard);
-
-    if (playerValue.isBlackjack && (dealerUpcardKind === "A" || dealerUpcardKind === "10")) {
-      const resolvedRound = this.resolveRound({
-        ...round,
-        dealerHoleHidden: false,
-      });
-      const shouldReshuffle = this.shoe.needsReshuffle();
-
-      if (shouldReshuffle) {
-        this.shoe.reshuffle();
-      }
-
-      return {
-        ...state,
-        phase: "roundResolved",
-        round: {
-          ...resolvedRound,
-          dealerHoleHidden: true,
-        },
-        nextHandSequence: state.nextHandSequence + 1,
-        bannerMessage: shouldReshuffle ? "Shoe reshuffled for the next hand." : state.bannerMessage,
-        stats: {
-          ...state.stats,
-          totalHandsPlayed: state.stats.totalHandsPlayed + resolvedRound.playerHands.length,
-          winnings:
-            state.stats.winnings +
-            resolvedRound.playerHands.reduce((total, hand) => total + hand.netResult, 0),
-        },
-      };
+    const nextState = { ...state, nextHandSequence: state.nextHandSequence + 1 };
+    const upcard = getDealerUpcardRank(dealerUpcard);
+    if (getHandValue(playerHand.cards).isBlackjack) {
+      return this.finishRound(nextState, round, upcard === "A" || upcard === "10");
     }
-
-    if (playerValue.isBlackjack) {
-      const resolvedRound = this.resolveRound({
-        ...round,
-        dealerHoleHidden: false,
-      });
-      const shouldReshuffle = this.shoe.needsReshuffle();
-
-      if (shouldReshuffle) {
-        this.shoe.reshuffle();
-      }
-
-      return {
-        ...state,
-        phase: "roundResolved",
-        round: resolvedRound,
-        nextHandSequence: state.nextHandSequence + 1,
-        bannerMessage: shouldReshuffle ? "Shoe reshuffled for the next hand." : state.bannerMessage,
-        stats: {
-          ...state.stats,
-          totalHandsPlayed: state.stats.totalHandsPlayed + resolvedRound.playerHands.length,
-          winnings:
-            state.stats.winnings +
-            resolvedRound.playerHands.reduce((total, hand) => total + hand.netResult, 0),
-        },
-      };
+    if (upcard === "A") {
+      return { ...nextState, phase: "insuranceDecision", round, correction: null, currentDecision: this.createInsuranceDecisionTracker(round) };
     }
-
-    if (dealerUpcardKind === "A") {
-      return {
-        ...state,
-        phase: "insuranceDecision",
-        round,
-        correction: null,
-        bannerMessage: state.bannerMessage,
-        nextHandSequence: state.nextHandSequence + 1,
-        currentDecision: this.createInsuranceDecisionTracker(round),
-      };
+    if (getHandValue(round.dealerCards).isBlackjack) {
+      return this.finishRound(nextState, round);
     }
+    return { ...nextState, phase: "playerTurn", round, correction: null, currentDecision: this.createDecisionTracker(round) };
+  }
 
-    if (dealerValue.isBlackjack) {
-      const resolvedRound = this.resolveRound({
-        ...round,
-        dealerHoleHidden: false,
-      });
-      const shouldReshuffle = this.shoe.needsReshuffle();
-
-      if (shouldReshuffle) {
-        this.shoe.reshuffle();
-      }
-
-      return {
-        ...state,
-        phase: "roundResolved",
-        round: resolvedRound,
-        nextHandSequence: state.nextHandSequence + 1,
-        bannerMessage: shouldReshuffle ? "Shoe reshuffled for the next hand." : state.bannerMessage,
-        stats: {
-          ...state.stats,
-          totalHandsPlayed: state.stats.totalHandsPlayed + resolvedRound.playerHands.length,
-          winnings:
-            state.stats.winnings +
-            resolvedRound.playerHands.reduce((total, hand) => total + hand.netResult, 0),
-        },
-      };
-    }
-
+  private finishRound(state: TrainerState, round: RoundState, keepHoleHidden = false): TrainerState {
+    const resolvedRound = this.resolveRound(round);
+    const shouldReshuffle = this.shoe.needsReshuffle();
+    if (shouldReshuffle) this.shoe.reshuffle();
     return {
       ...state,
-      phase: "playerTurn",
-      round,
+      phase: "roundResolved",
+      round: { ...resolvedRound, dealerHoleHidden: keepHoleHidden },
       correction: null,
-      bannerMessage: state.bannerMessage,
-      nextHandSequence: state.nextHandSequence + 1,
-      currentDecision: this.createDecisionTracker(round),
+      currentDecision: null,
+      nextWagerDecision: { baseWager: state.wagerAmount, error: null },
+      bannerMessage: shouldReshuffle ? "Shoe reshuffled for the next hand." : state.bannerMessage,
+      stats: {
+        ...state.stats,
+        totalHandsPlayed: state.stats.totalHandsPlayed + resolvedRound.playerHands.length,
+        winnings: state.stats.winnings + resolvedRound.insuranceNetResult +
+          resolvedRound.playerHands.reduce((total, hand) => total + hand.netResult, 0),
+      },
     };
   }
 
@@ -614,31 +532,7 @@ export class BlackjackTrainer {
       };
     }
 
-    const resolvedRound = this.resolveRound({
-      ...round,
-      dealerHoleHidden: false,
-    });
-    const shouldReshuffle = this.shoe.needsReshuffle();
-
-    if (shouldReshuffle) {
-      this.shoe.reshuffle();
-    }
-
-    return {
-      ...state,
-      phase: "roundResolved",
-      round: resolvedRound,
-      correction: null,
-      currentDecision: null,
-      bannerMessage: shouldReshuffle ? "Shoe reshuffled for the next hand." : state.bannerMessage,
-      stats: {
-        ...state.stats,
-        totalHandsPlayed: state.stats.totalHandsPlayed + resolvedRound.playerHands.length,
-        winnings:
-          state.stats.winnings +
-          resolvedRound.playerHands.reduce((total, hand) => total + hand.netResult, 0),
-      },
-    };
+    return this.finishRound(state, round);
   }
 
   private resolveRound(round: RoundState): RoundState {

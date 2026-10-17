@@ -2,6 +2,7 @@
 
 import { blackjackPayouts, isBlackjackPayout } from "@/domain/blackjackRules";
 import type { BlackjackPayout } from "@/domain/types";
+import { ControlButton } from "@/presentation/components/ControlButton";
 
 interface BlackjackPayoutControlProps {
   onChange: (value: BlackjackPayout) => void;
@@ -10,26 +11,24 @@ interface BlackjackPayoutControlProps {
 
 export function BlackjackPayoutControl({ onChange, value }: BlackjackPayoutControlProps) {
   return (
-    <label className="table-panel flex flex-col px-3 py-2 text-ivory">
+    <div aria-label="Blackjack Payout" role="group" className="table-panel flex flex-col px-3 py-2 text-ivory">
       <span className="text-xs font-semibold uppercase tracking-wide text-gold-muted">
         Blackjack Payout
       </span>
-      <select
-        aria-label="Blackjack Payout"
-        className="mt-2 w-full rounded-lg border border-ivory/20 bg-felt-dark px-2 py-1 text-lg font-semibold text-ivory outline-none focus:border-gold"
-        onChange={(event) => {
-          const payout = event.currentTarget.value;
-          if (isBlackjackPayout(payout)) {
-            onChange(payout);
-          }
-        }}
-        value={value}
-      >
-        {Object.keys(blackjackPayouts).map((payout) => (
-          <option key={payout} value={payout}>{payout}</option>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        {Object.keys(blackjackPayouts).filter(isBlackjackPayout).map((payout) => (
+          <ControlButton
+            key={payout}
+            aria-pressed={value === payout}
+            onClick={() => onChange(payout)}
+            type="button"
+            variant={value === payout ? "primary" : "secondary"}
+          >
+            {payout}
+          </ControlButton>
         ))}
-      </select>
+      </div>
       <span className="mt-1 text-xs text-ivory/65">Applies to the next dealt hand.</span>
-    </label>
+    </div>
   );
 }

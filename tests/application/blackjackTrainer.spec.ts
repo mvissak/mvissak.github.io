@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { createCard, createTrainerWithCards } from "@tests/helpers";
+import { dealNextHand, createCard, createTrainerWithCards } from "@tests/helpers";
 
 describe("blackjack trainer flow", () => {
   test("deals cards in player-hole-player-upcard order with the hole card hidden", () => {
@@ -322,7 +322,7 @@ describe("blackjack trainer flow", () => {
 
     const firstHand = trainer.startNewSession();
     const firstResult = trainer.submitAction(firstHand, "stand");
-    const secondHand = trainer.startNextHand(firstResult);
+    const secondHand = dealNextHand(trainer, firstResult);
     const secondResult = trainer.submitAction(secondHand, "stand");
 
     expect(firstResult.stats.winnings).toBe(25);
@@ -432,7 +432,7 @@ describe("blackjack trainer flow", () => {
     expect(resolved.round?.blackjackPayout).toBe(initial);
     expect(resolved.stats.winnings).toBe(25);
 
-    const nextHand = trainer.startNextHand(resolved);
+    const nextHand = dealNextHand(trainer, resolved);
     expect(nextHand.round?.blackjackPayout).toBe(next);
     expect(nextHand.round?.playerHands[0].netResult).toBe(net);
     expect(nextHand.round?.playerHands[0].summary).toBe(`Blackjack pays ${next}.`);
@@ -451,7 +451,7 @@ describe("blackjack trainer flow", () => {
     expect(updated.round).toBe(state.round);
     expect(updated.round?.playerHands[0].netResult).toBe(30);
     expect(updated.stats.winnings).toBe(30);
-    const nextHand = trainer.startNextHand(updated);
+    const nextHand = dealNextHand(trainer, updated);
     expect(nextHand.round?.playerHands[0].netResult).toBe(37.5);
     expect(nextHand.stats.winnings).toBe(67.5);
   });
@@ -468,7 +468,7 @@ describe("blackjack trainer flow", () => {
 
     expect(restored.blackjackPayout).toBe("6:5");
     expect(restored.round?.blackjackPayout).toBe("3:2");
-    const nextHand = trainer.startNextHand(trainer.submitAction(restored, "stand"));
+    const nextHand = dealNextHand(trainer, trainer.submitAction(restored, "stand"));
     expect(nextHand.round?.playerHands[0].netResult).toBe(30);
   });
 
@@ -491,7 +491,7 @@ describe("blackjack trainer flow", () => {
 
     expect(restored.blackjackPayout).toBe("6:5");
     expect(restored.round?.blackjackPayout).toBe("3:2");
-    const nextHand = trainer.startNextHand(trainer.submitAction(restored, "stand"));
+    const nextHand = dealNextHand(trainer, trainer.submitAction(restored, "stand"));
     expect(nextHand.round?.playerHands[0].netResult).toBe(30);
   });
 
@@ -510,7 +510,7 @@ describe("blackjack trainer flow", () => {
     const initialState = trainer.startNewSession();
     const updatedState = trainer.updateWagerAmount(initialState, 40);
     const resolvedState = trainer.submitAction(updatedState, "stand");
-    const nextHandState = trainer.startNextHand(resolvedState);
+    const nextHandState = dealNextHand(trainer, resolvedState);
 
     expect(updatedState.wagerAmount).toBe(40);
     expect(updatedState.round?.playerHands[0].bet).toBe(25);
@@ -532,7 +532,7 @@ describe("blackjack trainer flow", () => {
     const initialState = trainer.startNewSession();
     const updatedState = trainer.updateWagerAmount(initialState, 10);
     const resolvedState = trainer.submitAction(updatedState, "stand");
-    const nextHandState = trainer.startNextHand(resolvedState);
+    const nextHandState = dealNextHand(trainer, resolvedState);
 
     expect(updatedState.wagerAmount).toBe(25);
     expect(nextHandState.round?.playerHands[0].bet).toBe(25);
@@ -553,7 +553,7 @@ describe("blackjack trainer flow", () => {
     const initialState = trainer.startNewSession();
     const updatedState = trainer.updateWagerAmount(initialState, 5_000);
     const resolvedState = trainer.submitAction(updatedState, "stand");
-    const nextHandState = trainer.startNextHand(resolvedState);
+    const nextHandState = dealNextHand(trainer, resolvedState);
 
     expect(updatedState.wagerAmount).toBe(1_000);
     expect(nextHandState.round?.playerHands[0].bet).toBe(1_000);

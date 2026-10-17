@@ -2,6 +2,9 @@ import { getHandValue } from "@/domain/hand";
 import { blackjackRules } from "@/domain/blackjackRules";
 import { getAllowedActions } from "@/domain/round";
 import type { TrainerState } from "@/application/trainerState";
+import { getDisplayedTrueCount, getRunningCount } from "@/application/cardCounting";
+import { getDisplayedDealerCards, getFaceUpCardIds } from "@/presentation/view-models/cardVisibility";
+import type { CardVisibilityOptions } from "@/presentation/view-models/cardVisibility";
 import type { Card, PlayerAction } from "@/domain/types";
 import { buildBetChipStacks, type TrainerViewBetStack } from "@/presentation/view-models/betChips";
 
@@ -30,6 +33,7 @@ export interface TrainerViewAction {
 export interface TrainerViewMetric {
   label: string;
   value: string;
+  description?: string;
 }
 
 export interface TrainerViewCorrection {
@@ -40,9 +44,13 @@ export interface TrainerViewCorrection {
 
 export interface TrainerViewInsuranceOffer {
   amountLabel: string;
+  trueCountLabel: string;
 }
 
 export interface TrainerViewModel {
+  runningCount: number;
+  trueCount: number | null;
+  decisionNotice: string | null;
   blackjackPayoutLabel: string;
   loading: boolean;
   headerSummary: string;
@@ -56,9 +64,7 @@ export interface TrainerViewModel {
   roundResultAmountLabel: string | null;
 }
 
-export interface TrainerViewModelOptions {
-  dealerVisibleCardCount?: number | null;
-  revealDealerHoleCard?: boolean;
+export interface TrainerViewModelOptions extends CardVisibilityOptions {
   suppressResolvedOutcome?: boolean;
 }
 
@@ -68,6 +74,12 @@ const actionLabels: Record<PlayerAction, string> = {
   double: "Double",
   split: "Split",
 };
+
+export const formatRunningCount = (count: number): string =>
+  count > 0 ? `+${count}` : String(count);
+
+export const formatTrueCount = (count: number | null): string =>
+  count === null ? "—" : formatRunningCount(Math.trunc(count * 1000) / 1000);
 
 const formatMoney = (value: number): string =>
   new Intl.NumberFormat("en-US", {
@@ -107,6 +119,9 @@ export const buildTrainerViewModel = (
 ): TrainerViewModel => {
   if (!state || !state.round) {
     return {
+      runningCount: 0,
+      trueCount: null,
+      decisionNotice: null,
       blackjackPayoutLabel: state?.blackjackPayout ?? blackjackRules.defaultBlackjackPayout,
       loading: true,
       headerSummary: "Preparing the table.",
@@ -127,30 +142,28 @@ export const buildTrainerViewModel = (
   const activeHand = round.playerHands[round.activeHandIndex];
   const allowedActions =
     state.phase === "playerTurn" ? getAllowedActions(activeHand, round.playerHands.length) : null;
-  const dealerCardsForDisplay =
-    state.phase === "roundResolved" && options.dealerVisibleCardCount
-      ? round.dealerCards.slice(0, options.dealerVisibleCardCount)
-      : round.dealerCards;
+  const dealerVisibleCards = getDisplayedDealerCards(state, options);
   const shouldHideDealerHoleCard =
     round.dealerHoleHidden && options.revealDealerHoleCard !== true;
 
-  const dealerVisibleCards = dealerCardsForDisplay.map((card, index) => ({
-    ...card,
-    faceDown: shouldHideDealerHoleCard && index === 1,
-  }));
   const dealerVisibleValue = shouldHideDealerHoleCard
     ? `Upcard ${round.dealerCards[0].rank}`
-    : `Total ${getHandValue(dealerCardsForDisplay).total}`;
+    : `Total ${getHandValue(dealerVisibleCards).total}`;
+  const runningCount = getRunningCount(state, getFaceUpCardIds(state, options));
+  const trueCount = getDisplayedTrueCount(state, getFaceUpCardIds(state, options));
   const roundResultAmountLabel =
     state.phase === "roundResolved"
       ? formatRoundResultAmount(
           round.playerHands
             .filter((hand) => hand.outcome !== null)
-            .reduce((sum, hand) => sum + hand.netResult, 0),
+            .reduce((sum, hand) => sum + hand.netResult, round.insuranceNetResult),
         )
       : null;
 
   return {
+    runningCount,
+    trueCount,
+    decisionNotice: state.decisionNotice,
     blackjackPayoutLabel: round.blackjackPayout,
     loading: false,
     headerSummary:
@@ -220,6 +233,12 @@ export const buildTrainerViewModel = (
           }) as TrainerViewAction[])
       : [],
     metrics: [
+      {
+        label: "Running Count",
+        value: formatRunningCount(runningCount),
+        description: "Hi-Lo · resets with each new shoe",
+      },
+      { label: "True Count", value: formatTrueCount(trueCount), description: "Running count ÷ decks remaining" },
       { label: "Hands", value: String(state.stats.totalHandsPlayed) },
       {
         label: "First-Try Accuracy",
@@ -247,7 +266,8 @@ export const buildTrainerViewModel = (
     insuranceOffer:
       state.phase === "insuranceDecision"
         ? {
-            amountLabel: formatMoney((round.playerHands[0]?.bet ?? 0) * 0.5),
+            amountLabel: formatMoney((round.playerHands[0]?.bet ?? 0) * blackjackRules.insuranceWagerFraction),
+            trueCountLabel: formatTrueCount(trueCount),
           }
         : null,
     roundResultAmountLabel,

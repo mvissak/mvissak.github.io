@@ -74,6 +74,9 @@ The codebase follows onion architecture with framework-independent domain logic 
 - Dealer hole card stays hidden until dealer resolution.
 - Dealer checks for blackjack with an Ace or 10-value upcard before hit, stand, double, or split. With an Ace, the insurance training prompt comes first; dealer blackjack then resolves immediately.
 - Session stats include hands played, first-try accuracy inputs, mistakes, streaks, and running winnings.
+- The Hi-Lo running count follows cards as they appear face up: 2–6 add 1, 7–9 add 0, and 10/J/Q/K/A subtract 1. Hidden cards are excluded until revealed, and animated dealer draws count as they appear. The count persists on reload and resets when a new session begins or the next hand starts from a reshuffled shoe.
+- The count guide highlights the running-count direction and displays true count (running count divided by remaining decks). Basic-strategy moves remain accepted; the shared Hi-Lo index table also enables qualifying stands, doubles, splits, and negative-count hits. Validation uses the unrounded true count and excludes hidden cards. Insurance is accepted at true count +3 or higher, costs half the original wager, and pays 2:1 on dealer blackjack; declining is always accepted. Non-natural hand indices apply at either blackjack payout.
+- After each resolved round and its result animation, a bet prompt lets the player increase or decrease to a custom whole-dollar amount, or keep the base bet. The $25–$1000 limits are enforced by the application. Countdown and manual advancement wait for this choice, and pending choices survive reloads.
 - Shoe state persists across hands within a session and only reshuffles after the cut card has been reached and the current hand finishes.
 
 ## Future Extension Points

@@ -29,11 +29,16 @@ These rules are currently part of the product and must stay aligned across domai
 - Double on any two cards
 - Double after split allowed
 - No surrender
-- No insurance
+- Declining insurance is always accepted; buying it is accepted at Hi-Lo true count +3 or higher, costs half the original wager, and pays 2:1 on dealer blackjack
 - Dealer checks for blackjack with an Ace or 10-value upcard before player actions (after the insurance training prompt for an Ace)
 - Explicit shoe with no replacement
 - Cut card penetration between 70% and 80%
 - No mid-hand reshuffle
+- Hi-Lo running count follows face-up cards only (2–6: +1; 7–9: 0; 10/J/Q/K/A: -1), counting each physical card once
+- Count persists on reload and resets for a new session or the first hand of a reshuffled shoe; the old shoe's final count remains visible through the resolved hand's reveal sequence
+- Basic-strategy moves remain accepted; supported Hi-Lo exceptions are also accepted using the unrounded true count, visible cards only, and remaining decks in the explicit shoe
+- Count-reference guidance must match supported indices and action eligibility; it must not imply that a positive count guarantees an advantage, particularly at 6:5
+- Every resolved round requires an Increase, Decrease, or Keep wager choice before countdown/manual advancement; custom amounts must be whole dollars within the table limits
 - Reshuffle only after the current hand completes once the cut card has been reached
 - Minimum wager: `$25`
 - Maximum wager: `$1000`
@@ -302,7 +307,7 @@ If you need a new rule toggle, prefer adding it to `src/domain/blackjackRules.ts
   - dealer hole card stays hidden until reveal
   - wrong actions open a correction modal and do not advance the hand
   - resolved hands show prominent outcome callouts
-  - next hand can auto-advance via countdown or manual button
+  - next hand can auto-advance via countdown or manual button after the post-hand wager choice is confirmed
   - player bet chips render beneath the cards
   - chip stacks use larger denominations at the bottom
   - doubled hands show two adjacent stacks rather than a single combined chip
