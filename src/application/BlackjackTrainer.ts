@@ -294,7 +294,7 @@ export class BlackjackTrainer {
       correction: null,
       currentDecision: null,
       nextWagerDecision: { baseWager: state.wagerAmount, error: null },
-      bannerMessage: shouldReshuffle ? "Shoe reshuffled for the next hand." : state.bannerMessage,
+      bannerMessage: shouldReshuffle ? "Shoe reshuffled for the next hand." : null,
       stats: {
         ...state.stats,
         totalHandsPlayed: state.stats.totalHandsPlayed + resolvedRound.playerHands.length,
@@ -499,12 +499,15 @@ export class BlackjackTrainer {
       nextHand.status = deriveHandStatus(nextHand.cards, nextHand.originatedFromSplit);
       playerHands[awaitingDealIndex] = nextHand;
 
-      return {
+      const dealtRound = {
         ...round,
         activeHandIndex: awaitingDealIndex,
         playerHands,
         cutCardReachedDuringRound: round.cutCardReachedDuringRound || this.shoe.needsReshuffle(),
       };
+      // A split hand receiving 21 finishes immediately. Continue dealing to
+      // waiting hands before deciding that the player's round is complete.
+      return nextHand.status === "playing" ? dealtRound : this.advanceRound(dealtRound);
     }
 
     return {

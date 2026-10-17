@@ -22,7 +22,8 @@ describe("next-hand wager prompt", () => {
     expect(screen.queryByRole("dialog", { name: "Choose your next bet" })).not.toBeInTheDocument();
     await advance(60);
     const prompt = screen.getByRole("dialog", { name: "Choose your next bet" });
-    expect(within(prompt).getByRole("spinbutton", { name: "Custom bet amount" })).toHaveFocus();
+    expect(prompt).toHaveFocus();
+    expect(within(prompt).getByRole("spinbutton", { name: "Custom bet amount" })).not.toHaveFocus();
     await advance(10_000);
     expect(prompt).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Next Hand/i })).not.toBeInTheDocument();
@@ -30,6 +31,7 @@ describe("next-hand wager prompt", () => {
     fireEvent.change(screen.getByRole("spinbutton", { name: "Custom bet amount" }), { target: { value: "1001" } });
     fireEvent.click(screen.getByRole("button", { name: "Increase bet" }));
     expect(screen.getByRole("alert")).toHaveTextContent("from $25 to $1000");
+    expect(screen.getByRole("spinbutton", { name: "Custom bet amount" })).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByRole("textbox", { name: "Base Bet" })).toHaveValue("100");
     fireEvent.change(screen.getByRole("spinbutton", { name: "Custom bet amount" }), { target: { value: "137" } });
     fireEvent.click(screen.getByRole("button", { name: "Increase bet" }));

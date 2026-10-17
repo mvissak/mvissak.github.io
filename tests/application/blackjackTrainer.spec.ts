@@ -370,6 +370,32 @@ describe("blackjack trainer flow", () => {
     expect(afterResolutionSnapshot.shoe.cards).toHaveLength(312);
   });
 
+  test("deals every waiting resplit hand even when preceding hands automatically stand on 21", () => {
+    const trainer = createTrainerWithCards([
+      createCard("A"), createCard("10"), createCard("A"), createCard("6"),
+      createCard("A"), createCard("10"), createCard("10"), createCard("9"), createCard("2"),
+    ], 200, undefined, true);
+    const split = trainer.submitAction(trainer.startNewSession(), "split");
+    const resplit = trainer.submitAction(split, "split");
+    expect(resplit.phase).toBe("playerTurn");
+    expect(resplit.round?.activeHandIndex).toBe(2);
+    expect(resplit.round?.playerHands.map((hand) => hand.status)).toEqual(["stood", "stood", "playing"]);
+    expect(resplit.round?.playerHands[2].cards.map((card) => card.rank)).toEqual(["A", "9"]);
+    expect(resplit.round?.dealerCards).toHaveLength(2);
+    expect(resplit.stats.totalHandsPlayed).toBe(0);
+    const finished = trainer.submitAction(resplit, "stand");
+    expect(finished.phase).toBe("roundResolved");
+    expect(finished.stats.totalHandsPlayed).toBe(3);
+  });
+
+  test("clears a previous shoe reshuffle notice when a later round finishes normally", () => {
+    const trainer = createTrainerWithCards([
+      createCard("10"), createCard("9"), createCard("10"), createCard("10"),
+    ], 200, undefined, true);
+    const state = { ...trainer.startNewSession(), bannerMessage: "Shoe reshuffled for the next hand." };
+    expect(trainer.submitAction(state, "stand").bannerMessage).toBeNull();
+  });
+
   test("split leaves the second hand waiting for its first card until the first hand is resolved", () => {
     const trainer = createTrainerWithCards([
       createCard("8"),

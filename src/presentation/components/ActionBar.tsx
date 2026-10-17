@@ -43,14 +43,14 @@ export function ActionBar({
 
   return (
     <section
-      className="table-panel fixed inset-x-4 bottom-4 z-40 px-4 py-4 shadow-panel backdrop-blur-md tablet:inset-x-6 desktop:static desktop:z-auto desktop:px-4 desktop:py-4 desktop:shadow-none desktop:backdrop-blur-sm"
+      className="action-bar table-panel fixed inset-x-4 z-40 px-4 py-4 shadow-panel backdrop-blur-md tablet:inset-x-6 desktop:static desktop:z-auto desktop:px-4 desktop:py-4 desktop:shadow-none desktop:backdrop-blur-sm"
       data-testid="action-bar"
     >
       <div className="flex flex-col gap-4 tablet:flex-row tablet:items-center tablet:justify-between">
         <div>
           <p className="font-display text-lg tracking-[0.2em] text-gold">{title}</p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="grid grid-cols-2 gap-3 mobile:flex mobile:flex-wrap">
           {isAwaitingNextHand ? (
             <>
               <ControlButton variant="secondary" onClick={onCashOut}>

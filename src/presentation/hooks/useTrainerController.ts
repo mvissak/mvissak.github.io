@@ -27,6 +27,7 @@ import {
 import type { RoundReactionType } from "@/presentation/roundReaction";
 import { useDrinkServiceInterruptions } from "@/presentation/hooks/useDrinkServiceInterruptions";
 import { useCardCounting } from "@/presentation/hooks/useCardCounting";
+import { useTrainerState } from "@/presentation/hooks/useTrainerState";
 
 interface UseTrainerControllerOptions {
   trainer?: BlackjackTrainer;
@@ -62,8 +63,12 @@ const parseDurationToMs = (value: string): number => {
 };
 
 export function useTrainerController(options: UseTrainerControllerOptions = {}) {
-  const trainerRef = useRef(options.trainer ?? new BlackjackTrainer({ randomSource: new MathRandomSource() }));
-  const storeRef = useRef(options.store ?? new SessionStorageTrainerStore());
+  const trainerRef = useRef<BlackjackTrainer>(null);
+  if (!trainerRef.current) trainerRef.current = options.trainer ?? new BlackjackTrainer({ randomSource: new MathRandomSource() });
+  const storeRef = useRef<TrainerStateStore>(null);
+  if (!storeRef.current) storeRef.current = options.store ?? new SessionStorageTrainerStore();
+  const trainer = trainerRef.current;
+  const store = storeRef.current;
   const drinkOfferRandomSourceRef = useRef(options.drinkOfferRandomSource ?? new MathRandomSource());
   const initializedRef = useRef(false);
   const previousStateRef = useRef<TrainerState | null>(null);
@@ -76,7 +81,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
   const roundReactionDelayTimerRef = useRef<number | null>(null);
   const roundReactionTimerRef = useRef<number | null>(null);
   const reactedRoundSignatureRef = useRef<string | null>(null);
-  const [state, setState] = useState<TrainerState | null>(null);
+  const [state, setState] = useTrainerState();
   const [cashOutMessage, setCashOutMessage] = useState<TrainerViewCashOut | null>(null);
   const [countdownMsRemaining, setCountdownMsRemaining] = useState(0);
   const [dealerVisibleCardCount, setDealerVisibleCardCount] = useState<number | null>(null);
@@ -189,14 +194,21 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
   };
 
   useEffect(() => {
+    return () => {
+      if (roundReactionDelayTimerRef.current !== null) window.clearTimeout(roundReactionDelayTimerRef.current);
+      if (roundReactionTimerRef.current !== null) window.clearTimeout(roundReactionTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
     if (initializedRef.current) {
       return;
     }
 
-    const snapshot = storeRef.current.load();
+    const snapshot = store.load();
     const initialState = snapshot
-      ? restoreSession(trainerRef.current, snapshot)
-      : startNewSession(trainerRef.current);
+      ? restoreSession(trainer, snapshot)
+      : startNewSession(trainer);
 
     initializedRef.current = true;
     setState(initialState);
@@ -208,7 +220,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
       return;
     }
 
-    storeRef.current.save(trainerRef.current.createSnapshot(state));
+    store.save(trainer.createSnapshot(state));
   }, [state]);
 
   useLayoutEffect(() => {
@@ -376,7 +388,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     autoAdvanceTimerRef.current = window.setTimeout(() => {
       clearAutoAdvanceCountdown();
       setState((currentState) =>
-        currentState ? startNextHand(trainerRef.current, currentState) : currentState,
+        currentState ? startNextHand(trainer, currentState) : currentState,
       );
     }, autoAdvanceDelayMs);
 
@@ -394,7 +406,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     setCashOutMessage(null);
     setIsResetSessionConfirmationOpen(false);
     setState((currentState) =>
-      startNewSession(trainerRef.current, currentState?.wagerAmount, currentState?.blackjackPayout),
+      startNewSession(trainer, currentState?.wagerAmount, currentState?.blackjackPayout),
     );
     setSessionKey((current) => current + 1);
   };
@@ -420,7 +432,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     setCashOutMessage(buildCashOutMessage(state.stats.winnings));
     setIsCashOutOpen(true);
     setState((currentState) =>
-      startNewSession(trainerRef.current, currentState?.wagerAmount, currentState?.blackjackPayout),
+      startNewSession(trainer, currentState?.wagerAmount, currentState?.blackjackPayout),
     );
     setSessionKey((current) => current + 1);
   };
@@ -438,7 +450,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     setIsCashOutOpen(false);
     setCashOutMessage(null);
     setState((currentState) =>
-      currentState ? startNextHand(trainerRef.current, currentState) : currentState,
+      currentState ? startNextHand(trainer, currentState) : currentState,
     );
   };
 
@@ -449,7 +461,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
           return currentState;
         }
 
-        const nextState = submitPlayerAction(trainerRef.current, currentState, action);
+        const nextState = submitPlayerAction(trainer, currentState, action);
 
         if (
           nextState.phase === "roundResolved" &&
@@ -469,25 +481,25 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
 
   const chooseInsurance = (decision: InsuranceDecision) => {
     setState((currentState) =>
-      currentState ? submitInsuranceChoice(trainerRef.current, currentState, decision) : currentState,
+      currentState ? submitInsuranceChoice(trainer, currentState, decision) : currentState,
     );
   };
 
   const closeCorrection = () => {
     setState((currentState) =>
-      currentState ? dismissCorrection(trainerRef.current, currentState) : currentState,
+      currentState ? dismissCorrection(trainer, currentState) : currentState,
     );
   };
 
   const changeWagerAmount = (wagerAmount: number) => {
     setState((currentState) =>
-      currentState ? updateWagerAmount(trainerRef.current, currentState, wagerAmount) : currentState,
+      currentState ? updateWagerAmount(trainer, currentState, wagerAmount) : currentState,
     );
   };
 
   const changeBlackjackPayout = (blackjackPayout: BlackjackPayout) => {
     setState((currentState) =>
-      currentState ? updateBlackjackPayout(trainerRef.current, currentState, blackjackPayout) : currentState,
+      currentState ? updateBlackjackPayout(trainer, currentState, blackjackPayout) : currentState,
     );
   };
 

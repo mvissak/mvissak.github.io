@@ -35,6 +35,27 @@
   .table-panel {
     @apply rounded-panel border border-gold-muted/50 bg-ink/15 shadow-panel backdrop-blur-sm;
   }
+
+  .table-surface {
+    padding-bottom: calc(theme("spacing.52") + env(safe-area-inset-bottom, 0px));
+  }
+
+  .action-bar {
+    bottom: calc(theme("spacing.4") + env(safe-area-inset-bottom, 0px));
+  }
+
+  .modal-frame {
+    height: 100dvh;
+    padding: theme("spacing.4");
+    padding-top: max(theme("spacing.4"), env(safe-area-inset-top, 0px));
+    padding-bottom: max(theme("spacing.4"), env(safe-area-inset-bottom, 0px));
+  }
+
+  @screen desktop {
+    .table-surface {
+      padding-bottom: theme("spacing.6");
+    }
+  }
 }
 
 @layer utilities {
