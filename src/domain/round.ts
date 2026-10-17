@@ -1,8 +1,9 @@
-import { blackjackRules } from "@/domain/blackjackRules";
+import { blackjackPayouts, blackjackRules } from "@/domain/blackjackRules";
 import { Shoe } from "@/domain/Shoe";
 import { getHandValue, isPair } from "@/domain/hand";
 import type {
   AllowedActions,
+  BlackjackPayout,
   Card,
   HandStatus,
   SettledHand,
@@ -82,7 +83,11 @@ export const shouldDealerPlay = (
   playerHands: ReadonlyArray<Pick<PlayerRoundHand, "cards">>,
 ): boolean => playerHands.some((hand) => !getHandValue(hand.cards).isBust);
 
-export const settleHand = (hand: PlayerRoundHand, dealerCards: Card[]): SettledHand => {
+export const settleHand = (
+  hand: PlayerRoundHand,
+  dealerCards: Card[],
+  blackjackPayout: BlackjackPayout = blackjackRules.defaultBlackjackPayout,
+): SettledHand => {
   const playerValue = getHandValue(hand.cards);
   const dealerValue = getHandValue(dealerCards);
   const isNaturalBlackjack =
@@ -108,8 +113,8 @@ export const settleHand = (hand: PlayerRoundHand, dealerCards: Card[]): SettledH
   if (isNaturalBlackjack) {
     return {
       result: "blackjack",
-      net: hand.bet * blackjackRules.blackjackPayout,
-      summary: "Blackjack pays 3:2.",
+      net: Math.round(hand.bet * blackjackPayouts[blackjackPayout] * 100) / 100,
+      summary: `Blackjack pays ${blackjackPayout}.`,
     };
   }
 

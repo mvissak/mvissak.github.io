@@ -10,12 +10,14 @@ import {
   submitInsuranceChoice,
   submitPlayerAction,
   updateWagerAmount,
+  updateBlackjackPayout,
 } from "@/application/useCases";
 import type { TrainerState } from "@/application/trainerState";
 import { SessionStorageTrainerStore } from "@/infrastructure/SessionStorageTrainerStore";
 import { MathRandomSource } from "@/infrastructure/random";
 import type { TrainerStateStore } from "@/application/ports";
-import type { InsuranceDecision, PlayerAction, RandomSource } from "@/domain/types";
+import type { BlackjackPayout, InsuranceDecision, PlayerAction, RandomSource } from "@/domain/types";
+import { blackjackRules } from "@/domain/blackjackRules";
 import { themeTokens } from "@/presentation/theme/tokens";
 import {
   buildCashOutMessage,
@@ -380,7 +382,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     setCashOutMessage(null);
     setIsResetSessionConfirmationOpen(false);
     setState((currentState) =>
-      startNewSession(trainerRef.current, currentState?.wagerAmount),
+      startNewSession(trainerRef.current, currentState?.wagerAmount, currentState?.blackjackPayout),
     );
     setSessionKey((current) => current + 1);
   };
@@ -406,7 +408,7 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     setCashOutMessage(buildCashOutMessage(state.stats.winnings));
     setIsCashOutOpen(true);
     setState((currentState) =>
-      startNewSession(trainerRef.current, currentState?.wagerAmount),
+      startNewSession(trainerRef.current, currentState?.wagerAmount, currentState?.blackjackPayout),
     );
     setSessionKey((current) => current + 1);
   };
@@ -470,6 +472,12 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     );
   };
 
+  const changeBlackjackPayout = (blackjackPayout: BlackjackPayout) => {
+    setState((currentState) =>
+      currentState ? updateBlackjackPayout(trainerRef.current, currentState, blackjackPayout) : currentState,
+    );
+  };
+
   return {
     canAdvanceToNextHand:
       state?.phase === "roundResolved" &&
@@ -516,6 +524,8 @@ export function useTrainerController(options: UseTrainerControllerOptions = {}) 
     nextHand,
     state,
     updateWagerAmount: changeWagerAmount,
+    updateBlackjackPayout: changeBlackjackPayout,
+    blackjackPayout: state?.blackjackPayout ?? blackjackRules.defaultBlackjackPayout,
     takeAction,
     chooseInsurance,
     closeCorrection,

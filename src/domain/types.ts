@@ -24,6 +24,7 @@ export type Rank = (typeof ranks)[number];
 export type Suit = (typeof suits)[number];
 export type PlayerAction = (typeof playerActions)[number];
 export type InsuranceDecision = "yes" | "no";
+export type BlackjackPayout = "6:5" | "3:2";
 export type DealerUpcardRank = (typeof dealerUpcardOrder)[number];
 export type StrategyMatrixAction = "H" | "S" | "D" | "Ds" | "P";
 export type GamePhase = "ready" | "insuranceDecision" | "playerTurn" | "dealerTurn" | "roundResolved";

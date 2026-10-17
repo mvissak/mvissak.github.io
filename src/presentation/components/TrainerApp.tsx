@@ -75,6 +75,9 @@ export function TrainerApp({
       />
 
       <HeaderBar
+        blackjackPayout={controller.blackjackPayout}
+        blackjackPayoutLabel={viewModel.blackjackPayoutLabel}
+        onBlackjackPayoutChange={controller.updateBlackjackPayout}
         onNewSession={controller.requestResetSession}
         onWagerAmountChange={controller.updateWagerAmount}
         wagerAmount={controller.wagerAmount}

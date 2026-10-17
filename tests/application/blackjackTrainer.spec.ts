@@ -18,7 +18,7 @@ describe("blackjack trainer flow", () => {
     expect(state.phase).toBe("playerTurn");
   });
 
-  test("pays 150% on a natural blackjack", () => {
+  test("defaults to 6:5 and pays 120% on a natural blackjack", () => {
     const trainer = createTrainerWithCards(
       [
         createCard("A"),
@@ -34,8 +34,11 @@ describe("blackjack trainer flow", () => {
 
     expect(state.phase).toBe("roundResolved");
     expect(state.round?.playerHands[0].outcome).toBe("blackjack");
-    expect(state.round?.playerHands[0].netResult).toBe(60);
-    expect(state.stats.winnings).toBe(60);
+    expect(state.blackjackPayout).toBe("6:5");
+    expect(state.round?.blackjackPayout).toBe("6:5");
+    expect(state.round?.playerHands[0].netResult).toBe(48);
+    expect(state.round?.playerHands[0].summary).toBe("Blackjack pays 6:5.");
+    expect(state.stats.winnings).toBe(48);
   });
 
   test("skips insurance and keeps the dealer hole hidden when the player opens with blackjack against an ace", () => {
@@ -51,7 +54,7 @@ describe("blackjack trainer flow", () => {
     expect(state.phase).toBe("roundResolved");
     expect(state.round?.dealerHoleHidden).toBe(true);
     expect(state.round?.playerHands[0].outcome).toBe("blackjack");
-    expect(state.round?.playerHands[0].netResult).toBe(37.5);
+    expect(state.round?.playerHands[0].netResult).toBe(30);
   });
 
   test("pushes when both player and dealer have blackjack under an ace upcard", () => {
@@ -134,23 +137,35 @@ describe("blackjack trainer flow", () => {
     expect(repeatedWrongState.correction?.recommendedLabel).toBe("No Insurance");
   });
 
-  test("declining insurance resolves dealer blackjack when the hole card is ten-valued", () => {
+  test.each(["10", "J", "Q", "K"] as const)("checks an ace upcard for blackjack with a %s hole card before player actions", (holeCard) => {
     const trainer = createTrainerWithCards([
       createCard("10"),
       createCard("A", "clubs"),
-      createCard("7", "hearts"),
-      createCard("K", "diamonds"),
-    ]);
+      createCard("10", "hearts"),
+      createCard(holeCard, "diamonds"),
+      createCard("5"),
+      createCard("6"),
+    ], 6);
 
     const initialState = trainer.startNewSession();
+    for (const action of ["hit", "stand", "double", "split"] as const) {
+      expect(trainer.submitAction(initialState, action)).toBe(initialState);
+    }
     const state = trainer.submitInsuranceDecision(initialState, "no");
 
     expect(state.phase).toBe("roundResolved");
     expect(state.round?.dealerHoleHidden).toBe(false);
-    expect(state.round?.dealerCards.map((card) => card.rank)).toEqual(["A", "K"]);
+    expect(state.round?.dealerCards.map((card) => card.rank)).toEqual(["A", holeCard]);
     expect(state.round?.playerHands[0].outcome).toBe("loss");
     expect(state.round?.playerHands[0].netResult).toBe(-25);
     expect(state.stats.winnings).toBe(-25);
+    expect(state.stats.totalHandsPlayed).toBe(1);
+    expect(state.stats.decisionPointsResolved).toBe(1);
+    expect(state.currentDecision).toBeNull();
+    for (const action of ["hit", "stand", "double", "split"] as const) {
+      expect(trainer.submitAction(state, action)).toBe(state);
+    }
+    expect(trainer.createSnapshot(state).shoe.drawIndex).toBe(4);
   });
 
   test("declining insurance returns to normal play when the dealer does not have blackjack", () => {
@@ -169,35 +184,74 @@ describe("blackjack trainer flow", () => {
     expect(state.round?.dealerCards.map((card) => card.rank)).toEqual(["A", "9"]);
   });
 
-  test("does not reveal a ten-upcard dealer blackjack before player actions begin", () => {
+  test.each(["10", "J", "Q", "K"] as const)("resolves dealer blackjack under a %s upcard before player actions", (upcard) => {
     const trainer = createTrainerWithCards([
       createCard("10"),
-      createCard("10", "clubs"),
-      createCard("7", "hearts"),
+      createCard(upcard, "clubs"),
+      createCard("10", "hearts"),
       createCard("A", "diamonds"),
+      createCard("5"),
+      createCard("6"),
+    ], 6);
+
+    const state = trainer.startNewSession();
+
+    expect(state.phase).toBe("roundResolved");
+    expect(state.round?.dealerHoleHidden).toBe(false);
+    expect(state.round?.dealerCards.map((card) => card.rank)).toEqual([upcard, "A"]);
+    expect(state.round?.playerHands[0]).toMatchObject({
+      status: "resolved",
+      outcome: "loss",
+      bet: 25,
+      netResult: -25,
+      summary: "Dealer blackjack.",
+    });
+    expect(state.stats.totalHandsPlayed).toBe(1);
+    expect(state.stats.winnings).toBe(-25);
+    expect(state.stats.decisionPointsResolved).toBe(0);
+    expect(state.stats.mistakesMade).toBe(0);
+    expect(state.currentDecision).toBeNull();
+    expect(state.correction).toBeNull();
+    expect(state.nextHandSequence).toBe(2);
+    expect(trainer.createSnapshot(state).shoe.drawIndex).toBe(4);
+
+    for (const action of ["hit", "stand", "double", "split"] as const) {
+      expect(trainer.submitAction(state, action)).toBe(state);
+    }
+    expect(trainer.createSnapshot(state).shoe.drawIndex).toBe(4);
+  });
+
+  test.each(["10", "J", "Q", "K"] as const)("keeps normal player actions when a %s upcard is not blackjack", (upcard) => {
+    const trainer = createTrainerWithCards([
+      createCard("10"),
+      createCard(upcard, "clubs"),
+      createCard("10", "hearts"),
+      createCard("9", "diamonds"),
     ]);
 
     const state = trainer.startNewSession();
 
     expect(state.phase).toBe("playerTurn");
     expect(state.round?.dealerHoleHidden).toBe(true);
-    expect(state.round?.dealerCards.map((card) => card.rank)).toEqual(["10", "A"]);
+    expect(state.currentDecision).not.toBeNull();
+    expect(trainer.submitAction(state, "stand").round?.playerHands[0].outcome).toBe("win");
   });
 
-  test("reveals ten-upcard dealer blackjack only after the hand resolves", () => {
+  test("reshuffles after an opening dealer blackjack reaches the cut card", () => {
     const trainer = createTrainerWithCards([
       createCard("10"),
       createCard("10", "clubs"),
-      createCard("7", "hearts"),
+      createCard("10", "hearts"),
       createCard("A", "diamonds"),
-    ]);
+    ], 4);
 
-    const initialState = trainer.startNewSession();
-    const resolvedState = trainer.submitAction(initialState, "stand");
+    const state = trainer.startNewSession();
 
-    expect(resolvedState.phase).toBe("roundResolved");
-    expect(resolvedState.round?.dealerHoleHidden).toBe(false);
-    expect(resolvedState.round?.playerHands[0].summary).toBe("Dealer blackjack.");
+    expect(state.phase).toBe("roundResolved");
+    expect(state.round?.cutCardReachedDuringRound).toBe(true);
+    expect(state.bannerMessage).toBe("Shoe reshuffled for the next hand.");
+    expect(trainer.createSnapshot(state).shoe.drawIndex).toBe(0);
+    expect(trainer.createSnapshot(state).shoe.cards).toHaveLength(312);
   });
 
   test("blocks the hand and shows corrective feedback on a wrong action", () => {
@@ -356,6 +410,89 @@ describe("blackjack trainer flow", () => {
     expect(afterFirstHand.round?.playerHands[0].status).toBe("stood");
     expect(afterFirstHand.round?.playerHands[1].cards.map((card) => card.rank)).toEqual(["8", "2"]);
     expect(afterFirstHand.round?.playerHands[1].status).toBe("playing");
+  });
+
+  test.each([
+    { initial: "6:5", next: "3:2", net: 37.5 },
+    { initial: "3:2", next: "6:5", net: 30 },
+  ] as const)("changes payout from $initial to $next only for the next dealt hand", ({ initial, next, net }) => {
+    const trainer = createTrainerWithCards([
+      createCard("10"), createCard("9"), createCard("10"), createCard("10"),
+      createCard("A"), createCard("9"), createCard("K"), createCard("6"),
+      createCard("5"), createCard("6"),
+    ], 10, undefined, true);
+    const state = trainer.startNewSession(25, initial);
+    const updated = trainer.updateBlackjackPayout(state, next);
+
+    expect(updated.blackjackPayout).toBe(next);
+    expect(updated.round).toBe(state.round);
+    expect(updated.round?.blackjackPayout).toBe(initial);
+    expect(updated.stats).toBe(state.stats);
+    const resolved = trainer.submitAction(updated, "stand");
+    expect(resolved.round?.blackjackPayout).toBe(initial);
+    expect(resolved.stats.winnings).toBe(25);
+
+    const nextHand = trainer.startNextHand(resolved);
+    expect(nextHand.round?.blackjackPayout).toBe(next);
+    expect(nextHand.round?.playerHands[0].netResult).toBe(net);
+    expect(nextHand.round?.playerHands[0].summary).toBe(`Blackjack pays ${next}.`);
+    expect(nextHand.stats.winnings).toBe(25 + net);
+  });
+
+  test("changing payout after a natural does not change its settled winnings", () => {
+    const trainer = createTrainerWithCards([
+      createCard("A"), createCard("9"), createCard("K"), createCard("6"),
+      createCard("A"), createCard("9"), createCard("K"), createCard("6"),
+      createCard("5"), createCard("6"),
+    ], 10, undefined, true);
+    const state = trainer.startNewSession();
+    const updated = trainer.updateBlackjackPayout(state, "3:2");
+
+    expect(updated.round).toBe(state.round);
+    expect(updated.round?.playerHands[0].netResult).toBe(30);
+    expect(updated.stats.winnings).toBe(30);
+    const nextHand = trainer.startNextHand(updated);
+    expect(nextHand.round?.playerHands[0].netResult).toBe(37.5);
+    expect(nextHand.stats.winnings).toBe(67.5);
+  });
+
+  test("restores both the selected payout and the payout locked to the current round", () => {
+    const trainer = createTrainerWithCards([
+      createCard("10"), createCard("9"), createCard("10"), createCard("10"),
+      createCard("A"), createCard("9"), createCard("K"), createCard("6"),
+      createCard("5"), createCard("6"),
+    ], 10, undefined, true);
+    const state = trainer.startNewSession(25, "3:2");
+    const updated = trainer.updateBlackjackPayout(state, "6:5");
+    const restored = trainer.restore(trainer.createSnapshot(updated));
+
+    expect(restored.blackjackPayout).toBe("6:5");
+    expect(restored.round?.blackjackPayout).toBe("3:2");
+    const nextHand = trainer.startNextHand(trainer.submitAction(restored, "stand"));
+    expect(nextHand.round?.playerHands[0].netResult).toBe(30);
+  });
+
+  test("restores legacy rounds at 3:2 while defaulting future hands to 6:5", () => {
+    const trainer = createTrainerWithCards([
+      createCard("10"), createCard("9"), createCard("10"), createCard("10"),
+      createCard("A"), createCard("9"), createCard("K"), createCard("6"),
+      createCard("5"), createCard("6"),
+    ], 10, undefined, true);
+    const snapshot = trainer.createSnapshot(trainer.startNewSession());
+    const { blackjackPayout: selectedPayout, round, ...legacyState } = snapshot.state;
+    expect(selectedPayout).toBe("6:5");
+    if (!round) throw new Error("Expected a dealt round.");
+    const { blackjackPayout: roundPayout, ...legacyRound } = round;
+    expect(roundPayout).toBe("6:5");
+    const restored = trainer.restore({
+      ...snapshot,
+      state: { ...legacyState, round: legacyRound },
+    });
+
+    expect(restored.blackjackPayout).toBe("6:5");
+    expect(restored.round?.blackjackPayout).toBe("3:2");
+    const nextHand = trainer.startNextHand(trainer.submitAction(restored, "stand"));
+    expect(nextHand.round?.playerHands[0].netResult).toBe(30);
   });
 
   test("uses the configured wager amount for future hands", () => {

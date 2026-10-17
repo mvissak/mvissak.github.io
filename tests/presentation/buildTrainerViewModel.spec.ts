@@ -8,6 +8,7 @@ describe("buildTrainerViewModel", () => {
     const state: TrainerState = {
       phase: "roundResolved",
       round: {
+        blackjackPayout: "6:5",
         dealerCards: [createCard("6"), createCard("10", "clubs")],
         dealerHoleHidden: false,
         playerHands: [
@@ -39,11 +40,14 @@ describe("buildTrainerViewModel", () => {
       },
       bannerMessage: null,
       wagerAmount: 25,
+      blackjackPayout: "3:2",
       nextHandSequence: 2,
       currentDecision: null,
     };
 
     const viewModel = buildTrainerViewModel(state);
+
+    expect(viewModel.blackjackPayoutLabel).toBe("6:5");
 
     expect(viewModel.playerHands[0].betChipStacks?.map((stack) => stack.denominations)).toEqual([
       [25],
@@ -58,6 +62,7 @@ describe("buildTrainerViewModel", () => {
     const state: TrainerState = {
       phase: "roundResolved",
       round: {
+        blackjackPayout: "6:5",
         dealerCards: [
           createCard("6"),
           createCard("10", "clubs"),
@@ -93,6 +98,7 @@ describe("buildTrainerViewModel", () => {
       },
       bannerMessage: null,
       wagerAmount: 25,
+      blackjackPayout: "6:5",
       nextHandSequence: 2,
       currentDecision: null,
     };
@@ -113,6 +119,7 @@ describe("buildTrainerViewModel", () => {
     const state: TrainerState = {
       phase: "roundResolved",
       round: {
+        blackjackPayout: "3:2",
         dealerCards: [createCard("A"), createCard("9", "clubs")],
         dealerHoleHidden: true,
         playerHands: [
@@ -144,6 +151,7 @@ describe("buildTrainerViewModel", () => {
       },
       bannerMessage: null,
       wagerAmount: 25,
+      blackjackPayout: "3:2",
       nextHandSequence: 2,
       currentDecision: null,
     };
@@ -163,6 +171,7 @@ describe("buildTrainerViewModel", () => {
     const state: TrainerState = {
       phase: "roundResolved",
       round: {
+        blackjackPayout: "6:5",
         dealerCards: [createCard("6"), createCard("10", "clubs")],
         dealerHoleHidden: false,
         playerHands: [
@@ -194,6 +203,7 @@ describe("buildTrainerViewModel", () => {
       },
       bannerMessage: null,
       wagerAmount: 100,
+      blackjackPayout: "6:5",
       nextHandSequence: 2,
       currentDecision: null,
     };

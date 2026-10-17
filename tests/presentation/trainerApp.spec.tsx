@@ -14,6 +14,41 @@ describe("TrainerApp", () => {
     vi.useRealTimers();
   });
 
+  test("selects and persists the next-hand payout while showing the current hand's rules", async () => {
+    const user = userEvent.setup();
+    const trainer = createTrainerWithCards([
+      createCard("10"), createCard("9"), createCard("10"), createCard("10"),
+      createCard("A"), createCard("9"), createCard("K"), createCard("6"),
+      createCard("5"), createCard("6"),
+    ], 10, undefined, true);
+    const props = {
+      trainer,
+      autoAdvanceDelayMs: 10_000,
+      blackjackReactionDelayMs: 10,
+      winCelebrationDurationMs: 100,
+    };
+    const rendered = render(React.createElement(TrainerApp, props));
+    const selector = await screen.findByRole("combobox", { name: "Blackjack Payout" });
+    expect(selector).toHaveValue("6:5");
+    expect(within(selector).getAllByRole("option").map((option) => option.textContent)).toEqual(["6:5", "3:2"]);
+
+    await user.selectOptions(selector, "3:2");
+    expect(selector).toHaveValue("3:2");
+    expect(screen.getByText(/Table rules:.*blackjack pays 6:5/)).toBeInTheDocument();
+    rendered.unmount();
+    render(React.createElement(TrainerApp, props));
+
+    expect(await screen.findByRole("combobox", { name: "Blackjack Payout" })).toHaveValue("3:2");
+    expect(screen.getByText(/Table rules:.*blackjack pays 6:5/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Stand" }));
+    await user.click(await screen.findByRole("button", { name: /Next Hand/i }));
+
+    expect(screen.getByText(/Table rules:.*blackjack pays 3:2/)).toBeInTheDocument();
+    const overlay = await screen.findByTestId("round-result-reaction");
+    expect(within(overlay).getByText("Blackjack")).toBeInTheDocument();
+    expect(within(overlay).getByText("+$37.50")).toBeInTheDocument();
+  });
+
   test("shows the correction modal and keeps the hand in place on a wrong action", async () => {
     const user = userEvent.setup();
     const trainer = createTrainerWithCards([
@@ -122,27 +157,24 @@ describe("TrainerApp", () => {
     const overlay = screen.getByTestId("round-result-reaction");
 
     expect(within(overlay).getByText("Blackjack")).toBeInTheDocument();
-    expect(within(overlay).getByText("+$37.50")).toBeInTheDocument();
+    expect(within(overlay).getByText("+$30")).toBeInTheDocument();
   });
 
-  test("does not interrupt the opening deal when a ten upcard is hiding blackjack", async () => {
-    const user = userEvent.setup();
+  test.each(["10", "J", "Q", "K"] as const)("shows dealer blackjack under a %s upcard without offering player actions", async (upcard) => {
     const trainer = createTrainerWithCards([
       createCard("10"),
-      createCard("10", "clubs"),
-      createCard("7", "hearts"),
+      createCard(upcard, "clubs"),
+      createCard("10", "hearts"),
       createCard("A", "diamonds"),
     ]);
 
     render(React.createElement(TrainerApp, { trainer }));
 
-    expect(await screen.findByRole("button", { name: "Stand" })).toBeInTheDocument();
-    expect(screen.queryByText("Dealer shows an ace.")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("round-result-reaction")).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Stand" }));
-
     expect(await screen.findByText("Dealer Blackjack")).toBeInTheDocument();
+    for (const action of ["Hit", "Stand", "Double", "Split"]) {
+      expect(screen.queryByRole("button", { name: action })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText("Dealer shows an ace.")).not.toBeInTheDocument();
   });
 
   test("shows the action area title during player decisions", async () => {
@@ -273,6 +305,7 @@ describe("TrainerApp", () => {
       expect(screen.getByRole("button", { name: /Next Hand/i })).toBeInTheDocument();
     });
 
+    await user.selectOptions(screen.getByRole("combobox", { name: "Blackjack Payout" }), "3:2");
     await user.click(screen.getByRole("button", { name: "New Session" }));
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -292,6 +325,8 @@ describe("TrainerApp", () => {
 
     expect(screen.queryByText("YOU WIN")).not.toBeInTheDocument();
     expect(screen.getByText("Choose an action")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Blackjack Payout" })).toHaveValue("3:2");
+    expect(screen.getByText(/Table rules:.*blackjack pays 3:2/)).toBeInTheDocument();
   });
 
   test("shows a positive cash-out message with a ridiculous purchase example when the player is ahead", async () => {
@@ -315,6 +350,7 @@ describe("TrainerApp", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Cash Out" })).toBeInTheDocument();
     });
+    await user.selectOptions(screen.getByRole("combobox", { name: "Blackjack Payout" }), "3:2");
     await user.click(screen.getByRole("button", { name: "Cash Out" }));
 
     const dialog = screen.getByRole("dialog");
@@ -324,6 +360,8 @@ describe("TrainerApp", () => {
     expect(within(dialog).getByText("$25.00")).toBeInTheDocument();
     expect(within(dialog).getByText(/victory diner breakfast/i)).toBeInTheDocument();
     expect(screen.getByText("Choose an action")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Blackjack Payout" })).toHaveValue("3:2");
+    expect(screen.getByText(/Table rules:.*blackjack pays 3:2/)).toBeInTheDocument();
     expect(screen.getByText("$0.00")).toBeInTheDocument();
     expect(screen.getAllByText("0").length).toBeGreaterThan(0);
   });
@@ -692,6 +730,9 @@ describe("TrainerApp", () => {
     expect(overlay).toBeInTheDocument();
     expect(within(overlay).getByText("Dealer Blackjack")).toBeInTheDocument();
     expect(within(overlay).getByText("-$25")).toBeInTheDocument();
+    for (const action of ["Hit", "Stand", "Double", "Split"]) {
+      expect(screen.queryByRole("button", { name: action })).not.toBeInTheDocument();
+    }
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(100);
@@ -806,7 +847,7 @@ describe("TrainerApp", () => {
     const overlay = screen.getByTestId("round-result-reaction");
     expect(overlay).toBeInTheDocument();
     expect(within(overlay).getByText("Blackjack")).toBeInTheDocument();
-    expect(within(overlay).getByText("+$37.50")).toBeInTheDocument();
+    expect(within(overlay).getByText("+$30")).toBeInTheDocument();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(100);

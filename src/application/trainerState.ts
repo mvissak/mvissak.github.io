@@ -1,6 +1,7 @@
 import type { ShoeSnapshot } from "@/domain/Shoe";
 import type {
   Card,
+  BlackjackPayout,
   GamePhase,
   HandStatus,
   PlayerAction,
@@ -38,6 +39,7 @@ export interface PlayerHandState {
 }
 
 export interface RoundState {
+  blackjackPayout: BlackjackPayout;
   dealerCards: Card[];
   dealerHoleHidden: boolean;
   playerHands: PlayerHandState[];
@@ -59,12 +61,16 @@ export interface TrainerState {
   stats: SessionStats;
   bannerMessage: string | null;
   wagerAmount: number;
+  blackjackPayout: BlackjackPayout;
   nextHandSequence: number;
   currentDecision: DecisionTracker | null;
 }
 
 export interface PersistedTrainerState {
-  state: TrainerState;
+  state: Omit<TrainerState, "blackjackPayout" | "round"> & {
+    blackjackPayout?: BlackjackPayout;
+    round: (Omit<RoundState, "blackjackPayout"> & { blackjackPayout?: BlackjackPayout }) | null;
+  };
   shoe: ShoeSnapshot;
 }
 

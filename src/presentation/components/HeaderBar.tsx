@@ -1,6 +1,8 @@
 "use client";
 
 import { blackjackRules } from "@/domain/blackjackRules";
+import type { BlackjackPayout } from "@/domain/types";
+import { BlackjackPayoutControl } from "@/presentation/components/BlackjackPayoutControl";
 import { ControlButton } from "@/presentation/components/ControlButton";
 import { WagerAmountControl } from "@/presentation/components/WagerAmountControl";
 
@@ -8,12 +10,18 @@ interface HeaderBarProps {
   onNewSession: () => void;
   onWagerAmountChange: (value: number) => void;
   wagerAmount: number;
+  blackjackPayout: BlackjackPayout;
+  blackjackPayoutLabel: string;
+  onBlackjackPayoutChange: (value: BlackjackPayout) => void;
 }
 
 export function HeaderBar({
   onNewSession,
   onWagerAmountChange,
   wagerAmount,
+  blackjackPayout,
+  blackjackPayoutLabel,
+  onBlackjackPayoutChange,
 }: HeaderBarProps) {
   return (
     <header className="flex flex-col gap-4 tablet:flex-row tablet:items-end tablet:justify-between">
@@ -29,13 +37,15 @@ export function HeaderBar({
           hand and explain the correction before play continues.
         </p>
         <p className="mt-2 max-w-3xl text-sm text-ivory/70">
-          Table rules: 6-deck shoe, blackjack pays 3:2, dealer stands on soft 17 and all
+          Table rules: 6-deck shoe, blackjack pays {blackjackPayoutLabel}, dealer stands on soft 17 and all
           totals 17+, double on any two cards including after splits, no surrender,
+          dealer checks for blackjack with an ace or 10-value upcard before player actions,
           insurance is always declined in training, and a ${blackjackRules.minimumWagerAmount}-${blackjackRules.maximumWagerAmount} bet range.
         </p>
       </div>
       <div className="flex flex-wrap gap-3">
         <WagerAmountControl onChange={onWagerAmountChange} value={wagerAmount} />
+        <BlackjackPayoutControl onChange={onBlackjackPayoutChange} value={blackjackPayout} />
         <ControlButton variant="primary" onClick={onNewSession}>
           New Session
         </ControlButton>

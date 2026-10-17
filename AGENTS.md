@@ -24,11 +24,13 @@ These rules are currently part of the product and must stay aligned across domai
 
 - 6-deck blackjack shoe
 - Dealer stands on soft 17
-- Blackjack pays 3:2
+- Blackjack payout selectable between 6:5 (default) and 3:2
+- Payout changes apply to the next dealt hand; each round keeps the payout selected when dealt
 - Double on any two cards
 - Double after split allowed
 - No surrender
 - No insurance
+- Dealer checks for blackjack with an Ace or 10-value upcard before player actions (after the insurance training prompt for an Ace)
 - Explicit shoe with no replacement
 - Cut card penetration between 70% and 80%
 - No mid-hand reshuffle

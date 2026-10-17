@@ -1,4 +1,4 @@
-import { blackjackRules } from "@/domain/blackjackRules";
+import { blackjackRules, isBlackjackPayout } from "@/domain/blackjackRules";
 import { Shoe } from "@/domain/Shoe";
 import { getDealerUpcardRank, getHandValue } from "@/domain/hand";
 import {
@@ -17,7 +17,7 @@ import type {
   TrainerState,
 } from "@/application/trainerState";
 import { createEmptyStats } from "@/application/trainerState";
-import type { Card, InsuranceDecision, PlayerAction, RandomSource } from "@/domain/types";
+import type { BlackjackPayout, Card, InsuranceDecision, PlayerAction, RandomSource } from "@/domain/types";
 
 interface BlackjackTrainerOptions {
   defaultWagerAmount?: number;
@@ -48,13 +48,14 @@ const insuranceChoiceLabels: Record<InsuranceDecision, string> = {
   yes: "Yes, Buy Insurance",
 };
 
-const createBaseState = (wagerAmount: number): TrainerState => ({
+const createBaseState = (wagerAmount: number, blackjackPayout: BlackjackPayout): TrainerState => ({
   phase: "ready",
   round: null,
   correction: null,
   stats: createEmptyStats(),
   bannerMessage: null,
   wagerAmount,
+  blackjackPayout,
   nextHandSequence: 1,
   currentDecision: null,
 });
@@ -75,10 +76,16 @@ export class BlackjackTrainer {
     this.shoe = this.shoeFactory(this.randomSource);
   }
 
-  startNewSession(wagerAmount = this.defaultWagerAmount): TrainerState {
+  startNewSession(
+    wagerAmount = this.defaultWagerAmount,
+    blackjackPayout: BlackjackPayout = blackjackRules.defaultBlackjackPayout,
+  ): TrainerState {
     this.shoe = this.shoeFactory(this.randomSource);
 
-    return this.dealRound(createBaseState(normalizeWagerAmount(wagerAmount, this.defaultWagerAmount)));
+    return this.dealRound(createBaseState(
+      normalizeWagerAmount(wagerAmount, this.defaultWagerAmount),
+      isBlackjackPayout(blackjackPayout) ? blackjackPayout : blackjackRules.defaultBlackjackPayout,
+    ));
   }
 
   restore(snapshot: PersistedTrainerState): TrainerState {
@@ -86,6 +93,18 @@ export class BlackjackTrainer {
 
     return {
       ...snapshot.state,
+      blackjackPayout: isBlackjackPayout(snapshot.state.blackjackPayout)
+        ? snapshot.state.blackjackPayout
+        : blackjackRules.defaultBlackjackPayout,
+      round: snapshot.state.round
+        ? {
+            ...snapshot.state.round,
+            // Hands saved before payout selection was introduced were dealt at 3:2.
+            blackjackPayout: isBlackjackPayout(snapshot.state.round.blackjackPayout)
+              ? snapshot.state.round.blackjackPayout
+              : "3:2",
+          }
+        : null,
       wagerAmount: normalizeWagerAmount(
         snapshot.state.wagerAmount ?? this.defaultWagerAmount,
         this.defaultWagerAmount,
@@ -112,6 +131,10 @@ export class BlackjackTrainer {
       ...state,
       wagerAmount: normalizeWagerAmount(wagerAmount, state.wagerAmount),
     };
+  }
+
+  updateBlackjackPayout(state: TrainerState, blackjackPayout: BlackjackPayout): TrainerState {
+    return isBlackjackPayout(blackjackPayout) ? { ...state, blackjackPayout } : state;
   }
 
   startNextHand(state: TrainerState): TrainerState {
@@ -243,6 +266,7 @@ export class BlackjackTrainer {
       state.wagerAmount,
     );
     const round: RoundState = {
+      blackjackPayout: state.blackjackPayout,
       dealerCards: [dealerUpcard, dealerHole],
       dealerHoleHidden: true,
       playerHands: [playerHand],
@@ -321,18 +345,6 @@ export class BlackjackTrainer {
         bannerMessage: state.bannerMessage,
         nextHandSequence: state.nextHandSequence + 1,
         currentDecision: this.createInsuranceDecisionTracker(round),
-      };
-    }
-
-    if (dealerUpcardKind === "10" && dealerValue.isBlackjack && !playerValue.isBlackjack) {
-      return {
-        ...state,
-        phase: "playerTurn",
-        round,
-        correction: null,
-        bannerMessage: state.bannerMessage,
-        nextHandSequence: state.nextHandSequence + 1,
-        currentDecision: this.createDecisionTracker(round),
       };
     }
 
@@ -632,7 +644,7 @@ export class BlackjackTrainer {
   private resolveRound(round: RoundState): RoundState {
     const dealerCards = round.dealerCards;
     const resolvedHands = round.playerHands.map((hand) => {
-      const settled = settleHand(hand, dealerCards);
+      const settled = settleHand(hand, dealerCards, round.blackjackPayout);
 
       return {
         ...hand,

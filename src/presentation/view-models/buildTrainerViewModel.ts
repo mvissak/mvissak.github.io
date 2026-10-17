@@ -1,4 +1,5 @@
 import { getHandValue } from "@/domain/hand";
+import { blackjackRules } from "@/domain/blackjackRules";
 import { getAllowedActions } from "@/domain/round";
 import type { TrainerState } from "@/application/trainerState";
 import type { Card, PlayerAction } from "@/domain/types";
@@ -42,6 +43,7 @@ export interface TrainerViewInsuranceOffer {
 }
 
 export interface TrainerViewModel {
+  blackjackPayoutLabel: string;
   loading: boolean;
   headerSummary: string;
   bannerMessage: string | null;
@@ -105,6 +107,7 @@ export const buildTrainerViewModel = (
 ): TrainerViewModel => {
   if (!state || !state.round) {
     return {
+      blackjackPayoutLabel: state?.blackjackPayout ?? blackjackRules.defaultBlackjackPayout,
       loading: true,
       headerSummary: "Preparing the table.",
       bannerMessage: null,
@@ -148,6 +151,7 @@ export const buildTrainerViewModel = (
       : null;
 
   return {
+    blackjackPayoutLabel: round.blackjackPayout,
     loading: false,
     headerSummary:
       suppressResolvedOutcome

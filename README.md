@@ -69,8 +69,10 @@ The codebase follows onion architecture with framework-independent domain logic 
 ## Core Product Notes
 
 - Canonical basic strategy is encoded centrally in `src/domain/strategy.ts`.
+- Blackjack pays 6:5 by default, with a 3:2 option in the header. Payout and base-bet changes apply to the next dealt hand; the current round keeps its original settings. The payout selection persists when reloading or starting a new session.
 - Domain logic never depends on React, Next.js, browser APIs, or Tailwind.
 - Dealer hole card stays hidden until dealer resolution.
+- Dealer checks for blackjack with an Ace or 10-value upcard before hit, stand, double, or split. With an Ace, the insurance training prompt comes first; dealer blackjack then resolves immediately.
 - Session stats include hands played, first-try accuracy inputs, mistakes, streaks, and running winnings.
 - Shoe state persists across hands within a session and only reshuffles after the cut card has been reached and the current hand finishes.
 

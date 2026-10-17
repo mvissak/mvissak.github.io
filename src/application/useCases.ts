@@ -1,11 +1,12 @@
 import { BlackjackTrainer } from "@/application/BlackjackTrainer";
 import type { PersistedTrainerState, TrainerState } from "@/application/trainerState";
-import type { InsuranceDecision, PlayerAction } from "@/domain/types";
+import type { BlackjackPayout, InsuranceDecision, PlayerAction } from "@/domain/types";
 
 export const startNewSession = (
   trainer: BlackjackTrainer,
   wagerAmount?: number,
-): TrainerState => trainer.startNewSession(wagerAmount);
+  blackjackPayout?: BlackjackPayout,
+): TrainerState => trainer.startNewSession(wagerAmount, blackjackPayout);
 
 export const restoreSession = (
   trainer: BlackjackTrainer,
@@ -35,3 +36,9 @@ export const submitInsuranceChoice = (
   state: TrainerState,
   decision: InsuranceDecision,
 ): TrainerState => trainer.submitInsuranceDecision(state, decision);
+
+export const updateBlackjackPayout = (
+  trainer: BlackjackTrainer,
+  state: TrainerState,
+  blackjackPayout: BlackjackPayout,
+): TrainerState => trainer.updateBlackjackPayout(state, blackjackPayout);
