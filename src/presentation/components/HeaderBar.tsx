@@ -46,7 +46,7 @@ export function HeaderBar({
       <div className="flex flex-wrap gap-3">
         <WagerAmountControl onChange={onWagerAmountChange} value={wagerAmount} />
         <BlackjackPayoutControl onChange={onBlackjackPayoutChange} value={blackjackPayout} />
-        <ControlButton variant="primary" onClick={onNewSession}>
+        <ControlButton className="self-end whitespace-nowrap" variant="primary" onClick={onNewSession}>
           New Session
         </ControlButton>
       </div>
